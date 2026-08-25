@@ -52,10 +52,24 @@ Sur le téléphone, l'app récupère la nouvelle version au prochain lancement a
 du réseau. Le bouton **Vérifier les mises à jour** (onglet *Tarifs*) force le
 rafraîchissement.
 
+## Acomptes et solde
+
+Onglet **Acomptes** : les mensualités versées au fournisseur. Deux montants par
+défaut (premier acompte, acompte mensuel) remplissent la liste, et **chaque mois
+reste modifiable individuellement** si le montant prélevé a changé — un mois
+corrigé est signalé, avec un ↺ pour revenir au montant par défaut.
+
+Le total alimente le **solde** affiché en bas du décompte et dans l'en-tête :
+
+    décompte annuel estimé − acomptes versés = reste à payer (ou à rembourser)
+
+Valeurs de départ : **45 €** le premier mois (juillet 2025), puis **60 €/mois**
+sur 12 mois, soit 705 € — face à un décompte estimé de 504 €.
+
 ## Sauvegarde
 
 Onglet *Tarifs* → **Application → Sauvegarder mes données** : export/import d'un
-fichier `.json` contenant relevés et tarifs. Utile avant de changer de téléphone —
+fichier `.json` contenant relevés, tarifs et acomptes. Utile avant de changer de téléphone —
 effacer les données du site supprime tout.
 
 ## Tarifs par défaut

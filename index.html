@@ -36,6 +36,9 @@
   .readout .big{font-family:var(--mono);font-size:40px;font-weight:600;line-height:1;letter-spacing:-.01em;margin-top:4px}
   .readout .big .cur{font-size:20px;color:#9fb3a7;margin-left:2px}
   .readout .period{font-size:11px;color:#7e948a;margin-top:6px}
+  .readout .solde-line{font-size:12px;font-weight:700;margin-top:5px;letter-spacing:.01em}
+  .readout .solde-line.credit{color:#8fd39d}
+  .readout .solde-line.due{color:#f2b56b}
   .readout .poles{display:flex;flex-direction:column;gap:6px;text-align:right;flex-shrink:0}
   .pole{font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:6px;justify-content:flex-end}
   .pole b{font-size:14px}
@@ -110,6 +113,21 @@
   .kpi .box .n{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
   .kpi .box .n small{font-size:12px;color:#9fb3a7}
   .kpi .box.p{border-left:3px solid var(--prel)}.kpi .box.i{border-left:3px solid var(--inj)}
+  .pay{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px dashed var(--line)}
+  .pay:first-child{border-top:0}
+  .pay .m{flex:1;font-size:14px;font-weight:600}
+  .pay .m small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .pay input{width:100px;text-align:right;padding:8px 10px}
+  .pay .cur{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .pay.edited .m small{color:var(--accent);font-weight:600}
+  .pay .rst{background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;visibility:hidden}
+  .pay.edited .rst{visibility:visible}
+  .solde{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:2px solid var(--ink)}
+  .solde .t{font-weight:700;font-size:15px;line-height:1.3}
+  .solde .t small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+  .solde .a{font-family:var(--mono);font-weight:700;font-size:26px;white-space:nowrap}
+  .solde .a.credit{color:var(--prel-d)}
+  .solde .a.due{color:var(--danger)}
   .note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}
   .note b{color:var(--ink-soft)}
   details{margin-top:8px}
@@ -129,6 +147,7 @@
       <div class="label">Décompte annuel estimé</div>
       <div class="big"><span id="heroTotal">—</span><span class="cur"> €</span></div>
       <div class="period" id="heroPeriod">configure tes relevés</div>
+      <div class="solde-line" id="heroSolde"></div>
     </div>
     <div class="poles">
       <div class="pole"><span class="dot p"></span>prélèv. <b id="heroPrel">—</b></div>
@@ -203,6 +222,32 @@
 
     <h2 class="section">Relevés enregistrés</h2>
     <div id="readingsList"></div>
+  </section>
+
+  <!-- ============ ACOMPTES ============ -->
+  <section class="view" id="v-acomptes">
+    <h2 class="section">Ce que tu as déjà versé</h2>
+    <div class="kpi">
+      <div class="box"><div class="l">Total des acomptes</div><div class="n" id="a_total">—<small> €</small></div></div>
+      <div class="box"><div class="l">Solde estimé</div><div class="n" id="a_solde">—<small> €</small></div></div>
+    </div>
+    <p class="note" id="a_note"></p>
+
+    <h2 class="section">Montants par défaut</h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>Premier acompte <span class="u">€</span></label><input type="number" id="a_first" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="field"><label>Acompte mensuel <span class="u">€</span></label><input type="number" id="a_monthly" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="field"><label>Premier mois payé</label><select id="a_start"></select></div>
+        <div class="field"><label>Nombre de mois</label><input type="number" id="a_months" step="1" min="1" max="36" inputmode="numeric"></div>
+      </div>
+      <p class="note">Ces montants remplissent la liste ci-dessous. Un mois prélevé différemment se corrige directement sur sa ligne.</p>
+    </div>
+
+    <h2 class="section">Mois par mois</h2>
+    <div class="card" id="a_list"></div>
+    <button class="ghost" id="a_reset">Remettre tous les mois au montant par défaut</button>
+    <p class="note">Le solde compare le décompte annuel estimé au total de tes acomptes : positif, il reste à payer ; négatif, il te sera remboursé.</p>
   </section>
 
   <!-- ============ TARIFS ============ -->
@@ -305,6 +350,7 @@
 <nav class="tabs">
   <button data-view="decompte" class="active"><span class="ic">⊿</span>Décompte</button>
   <button data-view="suivi"><span class="ic">≣</span>Suivi</button>
+  <button data-view="acomptes"><span class="ic">€</span>Acomptes</button>
   <button data-view="tarifs"><span class="ic">⚙</span>Tarifs</button>
 </nav>
 
@@ -314,8 +360,8 @@
 "use strict";
 /* Changer APP_VERSION à chaque modification : nouvelle URL de service worker
    => nouveau cache => les anciens sont purgés automatiquement. */
-const APP_VERSION="1.0.0";
-const LS_S="decompte_settings_v2", LS_R="decompte_readings_v2", LS_U="decompte_ui_v2";
+const APP_VERSION="1.1.0";
+const LS_S="decompte_settings_v2", LS_R="decompte_readings_v2", LS_U="decompte_ui_v2", LS_P="decompte_acomptes_v1";
 const TVA=1.06;
 
 const DEFAULTS={
@@ -344,12 +390,17 @@ const SEED_READINGS=[
   {date:"2026-06-30", prelHP:5462.53, prelHC:6866.25, injHP:5584.93, injHC:3313.68}
 ];
 
-let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,{volSource:"suivi"});
+// Acomptes mensuels versés au fournisseur. `over` retient les mois corrigés
+// à la main ; les autres suivent `first` (1er mois) et `monthly`.
+const DEF_PAY={start:"2025-07", months:12, first:45, monthly:60, over:{}};
+
+let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,{volSource:"suivi"}), P=load(LS_P,DEF_PAY);
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v?(Array.isArray(def)?v:{...def,...v}):structuredClone(def);}catch(e){return structuredClone(def);}}
 function saveS(){localStorage.setItem(LS_S,JSON.stringify(S));}
 function saveR(){localStorage.setItem(LS_R,JSON.stringify(R));}
 function saveU(){localStorage.setItem(LS_U,JSON.stringify(UI));}
+function saveP(){localStorage.setItem(LS_P,JSON.stringify(P));}
 
 const $=id=>document.getElementById(id);
 const eur=n=>n.toLocaleString("fr-BE",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -358,6 +409,22 @@ const kwh=n=>n.toLocaleString("fr-BE",{maximumFractionDigits:0});
 const fmtDate=d=>{const[y,m,dd]=d.split("-");return dd+"/"+m+"/"+y;};
 
 function sortedReadings(){return [...R].sort((a,b)=>a.date<b.date?-1:1);}
+
+/* ---------- Acomptes ---------- */
+const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+function monthAdd(key,n){const[y,m]=key.split("-").map(Number);const d=new Date(Date.UTC(y,m-1+n,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}
+function monthLabel(key){const[y,m]=key.split("-");return MONTHS[+m-1]+" "+y;}
+function paySchedule(){
+  const out=[];
+  for(let i=0;i<P.months;i++){
+    const k=monthAdd(P.start,i);
+    const def=i===0?P.first:P.monthly;
+    const edited=Object.prototype.hasOwnProperty.call(P.over,k);
+    out.push({key:k, def, edited, amount:edited?P.over[k]:def});
+  }
+  return out;
+}
+function payTotal(){return paySchedule().reduce((s,x)=>s+x.amount,0);}
 function consumptionFromReadings(){
   const s=sortedReadings();
   if(s.length<2) return null;
@@ -445,7 +512,8 @@ function renderDecompte(){
     sum.innerHTML=`<p class="note">${UI.volSource==="suivi"?"Ajoute au moins 2 relevés dans l'onglet Suivi, ou bascule en saisie manuelle.":"Saisis tes volumes ci-dessus."}</p>`;
     bd.innerHTML=`<p class="note">En attente de volumes.</p>`;
     ["heroTotal","heroPrel","heroInj"].forEach(id=>$(id).textContent="—");
-    $("heroPeriod").textContent="configure tes relevés";return;
+    $("heroPeriod").textContent="configure tes relevés";
+    $("heroSolde").textContent="";return;
   }
   const r=calc(v);
 
@@ -499,12 +567,21 @@ function renderDecompte(){
   if(r.cb>0)h+=`<div class="bd-sub"><span>Cashback</span><span class="v">− ${eur(r.cb)} €</span></div>`;
   if(r.dom>0)h+=`<div class="bd-sub"><span>Domiciliation</span><span class="v">− ${eur(r.dom)} €</span></div>`;
   h+=`<div class="bd-total"><span class="t">Décompte annuel (TVAC)</span><span class="a">${eur0(r.total)} €</span></div>`;
+
+  // Acomptes déjà versés et solde qui en découle
+  const paid=payTotal(), solde=r.total-paid;
+  h+=`<div class="bd-sub" style="margin-top:10px"><span>Acomptes versés · ${P.months} mois</span><span class="v">− ${eur(paid)} €</span></div>`;
+  h+=`<div class="solde"><span class="t">${solde>=0?"Reste à payer":"À te rembourser"}<small>décompte estimé − acomptes</small></span>
+      <span class="a ${solde>=0?"due":"credit"}">${eur0(Math.abs(solde))} €</span></div>`;
   bd.innerHTML=h;
 
   $("heroTotal").textContent=eur0(r.total);
   $("heroPrel").textContent=kwh(r.gross)+" kWh";
   $("heroInj").textContent=kwh(r.injTot)+" kWh";
   $("heroPeriod").textContent=v.src==="suivi"?(v.full?`année complète · ${fmtDate(v.to)}`:`projeté 12 mois · ${fmtDate(v.to)}`):"volumes manuels";
+  const hs=$("heroSolde");
+  hs.className="solde-line "+(solde>=0?"due":"credit");
+  hs.textContent=(solde>=0?"reste à payer · ":"à rembourser · ")+eur0(Math.abs(solde))+" €";
 }
 
 function renderSuivi(){
@@ -541,6 +618,69 @@ function renderSuivi(){
   }
   list.innerHTML=h;
   list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{R=R.filter(x=>x.date!==b.dataset.del);saveR();renderSuivi();renderDecompte();flash("Relevé supprimé");});
+}
+
+function fillStartOptions(){
+  const s=sortedReadings();
+  const base=s.length?s[0].date.slice(0,7):new Date().toISOString().slice(0,7);
+  const opts=[];
+  for(let i=-6;i<=18;i++)opts.push(monthAdd(base,i));
+  if(!opts.includes(P.start))opts.push(P.start);
+  opts.sort();
+  $("a_start").innerHTML=opts.map(k=>`<option value="${k}"${k===P.start?" selected":""}>${monthLabel(k)}</option>`).join("");
+}
+
+function renderAcomptes(){
+  $("a_first").value=P.first; $("a_monthly").value=P.monthly; $("a_months").value=P.months;
+  fillStartOptions();
+
+  const sch=paySchedule(), total=sch.reduce((s,x)=>s+x.amount,0);
+  $("a_total").innerHTML=eur(total)+"<small> €</small>";
+
+  const v=getVolumes();
+  if(v&&(v.prelHP+v.prelHC+v.injHP+v.injHC)>0){
+    const solde=calc(v).total-total;
+    $("a_solde").innerHTML=(solde<0?"− ":"")+eur(Math.abs(solde))+"<small> €</small>";
+    $("a_note").innerHTML=solde>=0
+      ? `Décompte estimé <b>${eur0(calc(v).total)} €</b> − acomptes <b>${eur(total)} €</b> : il resterait <b>${eur(solde)} €</b> à payer en fin de période.`
+      : `Décompte estimé <b>${eur0(calc(v).total)} €</b> − acomptes <b>${eur(total)} €</b> : <b>${eur(-solde)} €</b> te seraient remboursés en fin de période.`;
+  }else{
+    $("a_solde").innerHTML="—";
+    $("a_note").textContent="Le solde s'affichera dès que le décompte pourra être calculé.";
+  }
+
+  $("a_list").innerHTML=sch.map((x,i)=>`<div class="pay${x.edited?" edited":""}">
+      <div class="m">${monthLabel(x.key)}<small>${x.edited?"corrigé · défaut "+eur(x.def)+" €":(i===0?"premier acompte":"acompte mensuel")}</small></div>
+      <input type="number" step="0.01" min="0" inputmode="decimal" data-k="${x.key}" value="${x.amount}" aria-label="Acompte de ${monthLabel(x.key)}">
+      <span class="cur">€</span>
+      <button class="rst" data-rst="${x.key}" title="Remettre au montant par défaut" aria-label="Remettre au montant par défaut">↺</button>
+    </div>`).join("");
+
+  $("a_list").querySelectorAll("input[data-k]").forEach(inp=>{
+    inp.addEventListener("change",()=>{
+      const k=inp.dataset.k, val=+inp.value;
+      if(inp.value===""||isNaN(val))delete P.over[k]; else P.over[k]=val;
+      saveP();renderAcomptes();renderDecompte();flash("Acompte enregistré");
+    });
+  });
+  $("a_list").querySelectorAll("[data-rst]").forEach(b=>b.onclick=()=>{
+    delete P.over[b.dataset.rst];saveP();renderAcomptes();renderDecompte();flash("Montant par défaut rétabli");
+  });
+}
+
+function bindAcomptes(){
+  ["a_first","a_monthly","a_months"].forEach(id=>$(id).addEventListener("change",()=>{
+    P.first=+$("a_first").value||0;
+    P.monthly=+$("a_monthly").value||0;
+    P.months=Math.max(1,Math.min(36,Math.round(+$("a_months").value||12)));
+    saveP();renderAcomptes();renderDecompte();
+  }));
+  $("a_start").addEventListener("change",()=>{P.start=$("a_start").value;saveP();renderAcomptes();renderDecompte();});
+  $("a_reset").onclick=()=>{
+    if(confirm("Remettre tous les mois à leur montant par défaut ?")){
+      P.over={};saveP();renderAcomptes();renderDecompte();flash("Montants réinitialisés");
+    }
+  };
 }
 
 const SMAP={s_enerUnit:"enerUnit",s_vertUnit:"vertUnit",s_reduc:"reduc",s_redev:"redev",
@@ -591,6 +731,7 @@ function bindReadings(){
   };
 }
 function switchView(name){
+  if(name==="acomptes")renderAcomptes();
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="v-"+name));
   document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
   window.scrollTo({top:0,behavior:"instant"});
@@ -599,7 +740,7 @@ document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>switchView
 let flashT;
 function flash(msg){const f=$("flash");f.textContent=msg;f.classList.add("show");clearTimeout(flashT);flashT=setTimeout(()=>f.classList.remove("show"),1600);}
 
-fillSettings();bindSettings();bindVolumes();bindReadings();renderSuivi();renderDecompte();
+fillSettings();bindSettings();bindVolumes();bindReadings();bindAcomptes();renderAcomptes();renderSuivi();renderDecompte();
 
 /* ================= Installation / hors ligne ================= */
 $("appVer").textContent="v"+APP_VERSION;
@@ -642,7 +783,7 @@ $("btnUpdate").onclick=async()=>{
 
 /* ================= Sauvegarde / restauration ================= */
 $("btnExport").onclick=()=>{
-  const data={app:"decompte",version:APP_VERSION,exportedAt:new Date().toISOString(),settings:S,readings:R,ui:UI};
+  const data={app:"decompte",version:APP_VERSION,exportedAt:new Date().toISOString(),settings:S,readings:R,ui:UI,acomptes:P};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -661,8 +802,9 @@ $("fileImport").onchange=e=>{
       if(!d||!Array.isArray(d.readings)||typeof d.settings!=="object")throw new Error("format");
       if(!confirm("Remplacer les relevés et tarifs actuels par ceux de la sauvegarde ?"))return;
       R=d.readings; S={...DEFAULTS,...d.settings}; UI={volSource:"suivi",...(d.ui||{})};
-      saveR();saveS();saveU();
-      fillSettings();renderSuivi();renderDecompte();
+      P={...DEF_PAY,...(d.acomptes||{})}; P.over=P.over||{};
+      saveR();saveS();saveU();saveP();
+      fillSettings();renderAcomptes();renderSuivi();renderDecompte();
       flash("Sauvegarde restaurée");
     }catch(err){alert("Fichier illisible : ce n'est pas une sauvegarde Décompte.");}
     finally{e.target.value="";}
