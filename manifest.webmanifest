@@ -1,0 +1,20 @@
+{
+  "name": "Décompte — électricité prosumer",
+  "short_name": "Décompte",
+  "description": "Décompte annuel d'électricité pour prosumer : relevés d'index HP/HC, compensation nette, tarifs Luminus / ELIA / RESA, estimation TVAC.",
+  "lang": "fr-BE",
+  "dir": "ltr",
+  "start_url": ".",
+  "scope": ".",
+  "id": "decompte-electricite",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f1ea",
+  "theme_color": "#16201c",
+  "categories": ["utilities", "finance"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Décompte — électricité prosumer</title>
+<meta name="description" content="Décompte annuel d'électricité pour prosumer : relevés d'index HP/HC, compensation nette, tarifs Luminus / ELIA / RESA, estimation TVAC. Fonctionne hors ligne.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#16201c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Décompte">
+<style>
+  :root{
+    --ink:#16201c;--ink-soft:#2a3a33;--paper:#f3f1ea;--card:#ffffff;--line:#dcd9cf;
+    --prel:#3f9a4e;--prel-d:#2f7a3c;--inj:#e9930f;--inj-d:#c97a05;
+    --muted:#6c7771;--accent:#0f5132;--danger:#b3401f;
+    --shadow:0 1px 0 rgba(0,0,0,.04),0 8px 24px -12px rgba(22,32,28,.18);
+    --mono:ui-monospace,"SF Mono","Roboto Mono","DejaVu Sans Mono",monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  header{background:var(--ink);color:#eef2ef;padding:calc(18px + env(safe-area-inset-top)) 18px 22px;position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 2px,transparent 2px 22px);pointer-events:none}
+  .brand{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
+  .brand h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.02em}
+  .brand .sub{font-size:11px;color:#8fa79a;text-transform:uppercase;letter-spacing:.14em}
+  .readout{position:relative;z-index:1;margin-top:16px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+  .readout .label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#8fa79a}
+  .readout .big{font-family:var(--mono);font-size:40px;font-weight:600;line-height:1;letter-spacing:-.01em;margin-top:4px}
+  .readout .big .cur{font-size:20px;color:#9fb3a7;margin-left:2px}
+  .readout .period{font-size:11px;color:#7e948a;margin-top:6px}
+  .readout .poles{display:flex;flex-direction:column;gap:6px;text-align:right;flex-shrink:0}
+  .pole{font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:6px;justify-content:flex-end}
+  .pole b{font-size:14px}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .dot.p{background:var(--prel)}.dot.i{background:var(--inj)}
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 20px -14px rgba(22,32,28,.3);padding-bottom:env(safe-area-inset-bottom)}
+  nav.tabs button{flex:1;border:0;background:none;padding:11px 4px 9px;cursor:pointer;font-family:var(--sans);color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:2px solid transparent}
+  nav.tabs button .ic{font-size:18px;line-height:1}
+  nav.tabs button.active{color:var(--accent);border-top-color:var(--accent)}
+  main{padding:16px calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left));max-width:680px;margin:0 auto}
+  .view{display:none}.view.active{display:block}
+  h2.section{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:22px 0 10px;font-weight:700}
+  h2.section:first-child{margin-top:6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+  .card .ttl{font-weight:700;font-size:15px;margin:0 0 2px}
+  .card .hint{font-size:12px;color:var(--muted);margin:0 0 12px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
+  .field .u{color:var(--muted);font-weight:400}
+  input[type=number],input[type=text],input[type=date],select{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-family:var(--mono);font-size:15px;background:#fbfaf6;color:var(--ink);-webkit-appearance:none;appearance:none}
+  select{font-family:var(--sans)}
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid4{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+  .seg button{flex:1;border:0;background:#fbfaf6;padding:9px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--sans)}
+  .seg button.on{background:var(--accent);color:#fff}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+  .toggle:first-of-type{border-top:0}
+  .toggle span{font-size:13px}
+  .sw{position:relative;width:44px;height:26px;flex-shrink:0}
+  .sw input{opacity:0;width:0;height:0;position:absolute}
+  .sw .tr{position:absolute;inset:0;background:#cfcdc4;border-radius:20px;transition:.18s}
+  .sw .tr::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .sw input:checked + .tr{background:var(--accent)}
+  .sw input:checked + .tr::before{transform:translateX(18px)}
+  .sw input:focus-visible + .tr{outline:2px solid var(--accent);outline-offset:2px}
+  .bd-block{margin-top:14px}
+  .bd-block:first-child{margin-top:0}
+  .bd-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--line)}
+  .bd-h .st{font-family:var(--mono);color:var(--ink)}
+  .bd-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px dashed var(--line);font-size:14px}
+  .bd-row .k{display:flex;flex-direction:column}
+  .bd-row .k small{font-size:11px;color:var(--muted)}
+  .bd-row .v{font-family:var(--mono);font-weight:600;white-space:nowrap}
+  .bd-row .v.credit{color:var(--inj-d)}
+  .bd-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:2px solid var(--ink)}
+  .bd-total .t{font-weight:700;font-size:15px}
+  .bd-total .a{font-family:var(--mono);font-weight:700;font-size:26px}
+  .bd-sub{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:3px}
+  .bd-sub .v{font-family:var(--mono)}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.02em}
+  .pill.net{background:#e7f0e9;color:var(--prel-d)}
+  .pill.brut{background:#fbeccd;color:var(--inj-d)}
+  .pill.fix{background:#e9e7df;color:var(--muted)}
+  .reading{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;box-shadow:var(--shadow)}
+  .reading .rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .reading .rdate{font-weight:700;font-size:14px}
+  .reading .rdel{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .reading .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
+  .reg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px}
+  .reg .ri{font-size:14px;width:30px;flex-shrink:0;letter-spacing:-1px}
+  .reg .rv{font-weight:600}
+  .reg.p .ri{color:var(--prel-d)}.reg.i .ri{color:var(--inj-d)}
+  .btn-x{background:none;border:0;color:var(--danger);font-size:18px;cursor:pointer;padding:0 2px;line-height:1}
+  button.primary{width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:12px;cursor:pointer;font-family:var(--sans);margin-top:4px}
+  button.primary:active{transform:translateY(1px)}
+  button.ghost{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-weight:600;font-size:14px;padding:11px;border-radius:12px;cursor:pointer;font-family:var(--sans)}
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+  .kpi .box{background:var(--ink);color:#eef2ef;border-radius:12px;padding:12px 13px}
+  .kpi .box .l{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#8fa79a}
+  .kpi .box .n{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
+  .kpi .box .n small{font-size:12px;color:#9fb3a7}
+  .kpi .box.p{border-left:3px solid var(--prel)}.kpi .box.i{border-left:3px solid var(--inj)}
+  .note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}
+  .note b{color:var(--ink-soft)}
+  details{margin-top:8px}
+  details summary{font-size:12px;font-weight:700;color:var(--accent);cursor:pointer}
+  .save-flash{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:9px 16px;border-radius:20px;opacity:0;transition:.25s;z-index:40;pointer-events:none}
+  .save-flash.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  @media(min-width:520px){.grid4{grid-template-columns:1fr 1fr 1fr 1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><h1>Décompte</h1><span class="sub">électricité · prosumer</span></div>
+  <div class="readout">
+    <div>
+      <div class="label">Décompte annuel estimé</div>
+      <div class="big"><span id="heroTotal">—</span><span class="cur"> €</span></div>
+      <div class="period" id="heroPeriod">configure tes relevés</div>
+    </div>
+    <div class="poles">
+      <div class="pole"><span class="dot p"></span>prélèv. <b id="heroPrel">—</b></div>
+      <div class="pole"><span class="dot i"></span>inject. <b id="heroInj">—</b></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ DÉCOMPTE ============ -->
+  <section class="view active" id="v-decompte">
+    <h2 class="section">Volumes</h2>
+    <div class="card">
+      <p class="ttl">Énergie sur la période</p>
+      <p class="hint">Calculé depuis ton suivi d'index, ou saisi à la main. La compensation nette prélèvement − injection (toutes plages) est la base de ta facture d'énergie.</p>
+      <div class="seg" id="volSource">
+        <button data-src="suivi" class="on">Depuis le suivi</button>
+        <button data-src="manuel">Saisie manuelle</button>
+      </div>
+      <div id="volManual" style="display:none">
+        <div class="grid4">
+          <div class="field"><label>Prélèv. HP <span class="u">kWh</span></label><input type="number" id="m_prelHP" step="0.1"></div>
+          <div class="field"><label>Prélèv. HC <span class="u">kWh</span></label><input type="number" id="m_prelHC" step="0.1"></div>
+          <div class="field"><label>Inject. HP <span class="u">kWh</span></label><input type="number" id="m_injHP" step="0.1"></div>
+          <div class="field"><label>Inject. HC <span class="u">kWh</span></label><input type="number" id="m_injHC" step="0.1"></div>
+        </div>
+      </div>
+      <div id="volSummary"></div>
+    </div>
+
+    <h2 class="section">Décompte estimé</h2>
+    <div class="card" id="breakdownCard"><div id="breakdown"></div></div>
+
+    <details>
+      <summary>Comment se calcule ce décompte ?</summary>
+      <p class="note">
+        Il reprend la structure de ta facture Luminus, en quatre blocs.
+        <span class="pill net">net</span> = sur le prélèvement compensé (prélèvement − injection, toutes plages confondues) :
+        énergie et taxes. <span class="pill brut">brut</span> = sur tout le prélèvement au compteur : transport ELIA et distribution RESA.
+        Le <b>ristorno production décentralisée</b> te rend une partie de la distribution au prorata de ton injection.
+        <span class="pill fix">fixe</span> = redevances indépendantes des kWh.<br><br>
+        Comme la compensation nette tes deux plages ensemble, la distinction heures pleines / creuses <b>ne joue plus</b> sur ton énergie — d'où le « simple tarif » de ton compteur. Le seul volume qui compte pour l'énergie, c'est ton <b>net annuel</b>.
+      </p>
+    </details>
+  </section>
+
+  <!-- ============ SUIVI ============ -->
+  <section class="view" id="v-suivi">
+    <h2 class="section">Bilan sur la période suivie</h2>
+    <div class="kpi">
+      <div class="box p"><div class="l">Prélèvement brut</div><div class="n" id="k_prel">—<small> kWh</small></div></div>
+      <div class="box i"><div class="l">Injection</div><div class="n" id="k_inj">—<small> kWh</small></div></div>
+    </div>
+    <div class="kpi">
+      <div class="box"><div class="l">Prélèvement net</div><div class="n" id="k_net">—<small> kWh</small></div></div>
+      <div class="box"><div class="l">Projection 12 mois</div><div class="n" id="k_proj">—<small> kWh net</small></div></div>
+    </div>
+    <p class="note" id="k_span"></p>
+
+    <h2 class="section">Ajouter un relevé d'index</h2>
+    <div class="card">
+      <p class="hint">Recopie les 4 index de ton compteur : ☀ heures pleines · ☾ heures creuses.</p>
+      <div class="field"><label>Date du relevé</label><input type="date" id="r_date"></div>
+      <div class="grid4">
+        <div class="field"><label>☀↓ Prélèv. HP</label><input type="number" id="r_prelHP" step="0.01" placeholder="kWh"></div>
+        <div class="field"><label>☾↓ Prélèv. HC</label><input type="number" id="r_prelHC" step="0.01" placeholder="kWh"></div>
+        <div class="field"><label>☀↑ Inject. HP</label><input type="number" id="r_injHP" step="0.01" placeholder="kWh"></div>
+        <div class="field"><label>☾↑ Inject. HC</label><input type="number" id="r_injHC" step="0.01" placeholder="kWh"></div>
+      </div>
+      <button class="primary" id="addReading">Enregistrer le relevé</button>
+    </div>
+
+    <h2 class="section">Relevés enregistrés</h2>
+    <div id="readingsList"></div>
+  </section>
+
+  <!-- ============ TARIFS ============ -->
+  <section class="view" id="v-tarifs">
+    <p class="note" style="margin:6px 0 0">Valeurs calées sur ton décompte réel 05/07/2025 → 30/06/2026 (503,62 € TVAC). Ajuste-les quand tes tarifs changent.</p>
+
+    <h2 class="section">Luminus — énergie <span style="text-transform:none;font-weight:400;color:var(--muted)">· base nette</span></h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>Énergie MaxxFix <span class="u">c€/kWh</span></label><input type="number" id="s_enerUnit" step="0.01"></div>
+        <div class="field"><label>Énergie verte <span class="u">c€/kWh</span></label><input type="number" id="s_vertUnit" step="0.01"></div>
+        <div class="field"><label>Réduction promo <span class="u">%</span></label><input type="number" id="s_reduc" step="0.1"></div>
+        <div class="field"><label>Redevance fixe <span class="u">€/an</span></label><input type="number" id="s_redev" step="0.01"></div>
+      </div>
+      <p class="note">La réduction 24 % est une promo de 12 mois (jusqu'au 04/07/2026). Passe-la à 0 pour projeter l'année suivante.</p>
+    </div>
+
+    <h2 class="section">ELIA — transport <span style="text-transform:none;font-weight:400;color:var(--muted)">· base brute</span></h2>
+    <div class="card">
+      <div class="field"><label>Transport (tout compris) <span class="u">c€/kWh brut</span></label><input type="number" id="s_transUnit" step="0.001"></div>
+    </div>
+
+    <h2 class="section">RESA — distribution <span style="text-transform:none;font-weight:400;color:var(--muted)">· base brute</span></h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>Puissance souscrite <span class="u">c€/kWh brut</span></label><input type="number" id="s_distUnit" step="0.001"></div>
+        <div class="field"><label>Ristorno production <span class="u">c€/kWh inj.</span></label><input type="number" id="s_ristUnit" step="0.001"></div>
+        <div class="field"><label>Services publics <span class="u">c€/kWh brut</span></label><input type="number" id="s_servUnit" step="0.001"></div>
+        <div class="field"><label>Autres taxes réseau <span class="u">c€/kWh brut</span></label><input type="number" id="s_distTaxUnit" step="0.001"></div>
+        <div class="field"><label>Terme fixe GRD <span class="u">€/an</span></label><input type="number" id="s_grdFixe" step="0.01"></div>
+      </div>
+      <p class="note">Le ristorno (production décentralisée ≤10 kWe) est un crédit proportionnel à ton injection.</p>
+    </div>
+
+    <h2 class="section">Gouvernement — taxes <span style="text-transform:none;font-weight:400;color:var(--muted)">· base nette</span></h2>
+    <div class="card">
+      <div class="grid2">
+        <div class="field"><label>Accise spéciale <span class="u">c€/kWh</span></label><input type="number" id="s_accise" step="0.0001"></div>
+        <div class="field"><label>Cotisation énergie <span class="u">c€/kWh</span></label><input type="number" id="s_cotis" step="0.0001"></div>
+        <div class="field"><label>Redev. raccordement <span class="u">c€/kWh</span></label><input type="number" id="s_racc" step="0.0001"></div>
+      </div>
+    </div>
+
+    <h2 class="section">Surplus d'injection <span style="text-transform:none;font-weight:400;color:var(--muted)">· si inj. &gt; prélèv.</span></h2>
+    <div class="card">
+      <p class="hint">Ne s'applique que si ton injection dépasse ton prélèvement sur l'année (net à 0). Tarif Luminus payé sur le surplus.</p>
+      <div class="seg" id="injMode">
+        <button data-mode="manuel" class="on">Tarif direct</button>
+        <button data-mode="belpex">Via Belpex</button>
+      </div>
+      <div id="injManual">
+        <div class="grid2">
+          <div class="field"><label>Inject. HP <span class="u">c€/kWh</span></label><input type="number" id="s_injHP" step="0.01"></div>
+          <div class="field"><label>Inject. HC <span class="u">c€/kWh</span></label><input type="number" id="s_injHC" step="0.01"></div>
+        </div>
+      </div>
+      <div id="injBelpex" style="display:none">
+        <div class="field"><label>Belpex M <span class="u">€/MWh</span></label><input type="number" id="s_belpex" step="0.01"></div>
+        <div class="grid2">
+          <div class="field"><label>Coef. HP</label><input type="number" id="s_coefHP" step="0.0001"></div>
+          <div class="field"><label>Coef. HC</label><input type="number" id="s_coefHC" step="0.0001"></div>
+        </div>
+        <div class="field"><label>Constante <span class="u">c€/kWh</span></label><input type="number" id="s_const" step="0.01"></div>
+        <div id="belpexPreview" class="note"></div>
+      </div>
+    </div>
+
+    <h2 class="section">Crédits ponctuels</h2>
+    <div class="card">
+      <div class="toggle"><span>Cashback bienvenue (<span id="lbl_cb">130</span> €)</span>
+        <label class="sw"><input type="checkbox" id="s_cbOn"><span class="tr"></span></label></div>
+      <div class="field" style="margin-top:8px"><label>Montant cashback <span class="u">€</span></label><input type="number" id="s_cb" step="1"></div>
+      <div class="toggle"><span>Réduction domiciliation (<span id="lbl_dom">20</span> €)</span>
+        <label class="sw"><input type="checkbox" id="s_domOn"><span class="tr"></span></label></div>
+      <div class="field" style="margin-top:8px"><label>Montant domiciliation <span class="u">€</span></label><input type="number" id="s_dom" step="1"></div>
+      <p class="note">Ces crédits n'apparaissent pas sur le décompte annuel : le cashback de 130 € est versé à part, ~1 an après le début du contrat. Laisse-les décochés pour coller au décompte.</p>
+    </div>
+
+    <button class="ghost" id="resetAll">Réinitialiser les tarifs par défaut</button>
+    <p class="note">TVA 6 % sur énergie, réseau et termes fixes. Redevance de raccordement à 0 %.</p>
+
+    <h2 class="section">Application</h2>
+    <div class="card">
+      <p class="ttl">Décompte <span class="pill fix" id="appVer">—</span></p>
+      <p class="hint">Installée sur ton téléphone, elle s'ouvre en plein écran et fonctionne sans connexion. Tes relevés et tes tarifs restent sur cet appareil.</p>
+      <button class="primary" id="btnInstall" hidden>Installer sur l'écran d'accueil</button>
+      <p class="note" id="installHint" hidden>Sur iPhone : bouton <b>Partager</b> en bas de Safari → <b>Sur l'écran d'accueil</b>.</p>
+      <button class="ghost" id="btnUpdate" style="margin-top:8px">Vérifier les mises à jour</button>
+      <details>
+        <summary>Sauvegarder mes données</summary>
+        <p class="note">Le fichier exporté contient tes relevés d'index et tes tarifs. Garde-le : réinstaller le navigateur ou effacer les données du site supprime tout.</p>
+        <button class="ghost" id="btnExport" style="margin-top:6px">Exporter (fichier .json)</button>
+        <label class="ghost" for="fileImport" style="display:block;margin-top:8px;text-align:center">Importer une sauvegarde</label>
+        <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
+      </details>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-view="decompte" class="active"><span class="ic">⊿</span>Décompte</button>
+  <button data-view="suivi"><span class="ic">≣</span>Suivi</button>
+  <button data-view="tarifs"><span class="ic">⚙</span>Tarifs</button>
+</nav>
+
+<div class="save-flash" id="flash">Enregistré</div>
+
+<script>
+"use strict";
+/* Changer APP_VERSION à chaque modification : nouvelle URL de service worker
+   => nouveau cache => les anciens sont purgés automatiquement. */
+const APP_VERSION="1.0.0";
+const LS_S="decompte_settings_v2", LS_R="decompte_readings_v2", LS_U="decompte_ui_v2";
+const TVA=1.06;
+
+const DEFAULTS={
+  enerUnit:16.56, vertUnit:2.85, reduc:24, redev:61.32,
+  transUnit:2.712,
+  distUnit:8.11, ristUnit:2.724, servUnit:0.967, distTaxUnit:1.128, grdFixe:25,
+  accise:4.748, cotis:0.1926, racc:0.075,
+  injMode:"manuel", injHP:3.26, injHC:0.94, belpex:61.07, coefHP:0.0794, coefHC:0.0414, constInj:1.59,
+  cbOn:false, cb:130, domOn:false, dom:20
+};
+
+// Index réels (décompte + relevés RESA), période 05/07/2025 -> 30/06/2026
+const SEED_READINGS=[
+  {date:"2025-07-05", prelHP:3784.43, prelHC:5213.13, injHP:4153.81, injHC:1630.02},
+  {date:"2025-07-31", prelHP:3926.9,  prelHC:5363.6,  injHP:4376.9,  injHC:1713.9},
+  {date:"2025-08-31", prelHP:4043.2,  prelHC:5532.7,  injHP:4712.3,  injHC:1834.9},
+  {date:"2025-09-30", prelHP:4275.8,  prelHC:5651.1,  injHP:4898.2,  injHC:1935.6},
+  {date:"2025-10-31", prelHP:4417.6,  prelHC:5798,    injHP:4984.2,  injHC:1966.8},
+  {date:"2025-11-30", prelHP:4536.6,  prelHC:5955.1,  injHP:5077.4,  injHC:2000.4},
+  {date:"2025-12-31", prelHP:4725.5,  prelHC:6115.1,  injHP:5154.5,  injHC:2029.2},
+  {date:"2026-01-31", prelHP:4923.4,  prelHC:6305.1,  injHP:5163.3,  injHC:2070.7},
+  {date:"2026-02-28", prelHP:5094.5,  prelHC:6450.3,  injHP:5192.8,  injHC:2170.7},
+  {date:"2026-03-31", prelHP:5266.1,  prelHC:6593.5,  injHP:5296.3,  injHC:2437.9},
+  {date:"2026-04-30", prelHP:5334.5,  prelHC:6684.8,  injHP:5397.9,  injHC:2775.8},
+  {date:"2026-05-31", prelHP:5399.8,  prelHC:6772.2,  injHP:5489.2,  injHC:3035.1},
+  {date:"2026-06-30", prelHP:5462.53, prelHC:6866.25, injHP:5584.93, injHC:3313.68}
+];
+
+let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,{volSource:"suivi"});
+
+function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v?(Array.isArray(def)?v:{...def,...v}):structuredClone(def);}catch(e){return structuredClone(def);}}
+function saveS(){localStorage.setItem(LS_S,JSON.stringify(S));}
+function saveR(){localStorage.setItem(LS_R,JSON.stringify(R));}
+function saveU(){localStorage.setItem(LS_U,JSON.stringify(UI));}
+
+const $=id=>document.getElementById(id);
+const eur=n=>n.toLocaleString("fr-BE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const eur0=n=>Math.round(n).toLocaleString("fr-BE");
+const kwh=n=>n.toLocaleString("fr-BE",{maximumFractionDigits:0});
+const fmtDate=d=>{const[y,m,dd]=d.split("-");return dd+"/"+m+"/"+y;};
+
+function sortedReadings(){return [...R].sort((a,b)=>a.date<b.date?-1:1);}
+function consumptionFromReadings(){
+  const s=sortedReadings();
+  if(s.length<2) return null;
+  const f=s[0], l=s[s.length-1];
+  const days=(new Date(l.date)-new Date(f.date))/86400000;
+  return {prelHP:l.prelHP-f.prelHP, prelHC:l.prelHC-f.prelHC, injHP:l.injHP-f.injHP, injHC:l.injHC-f.injHC, days, from:f.date, to:l.date};
+}
+function annualize(c){
+  const full=c.days>=350;
+  const f= full?1:(c.days>0?365/c.days:1);
+  return {prelHP:c.prelHP*f, prelHC:c.prelHC*f, injHP:c.injHP*f, injHC:c.injHC*f, factor:f, full, days:c.days};
+}
+
+function injTariffs(){
+  if(S.injMode==="belpex") return {hp:S.coefHP*S.belpex-S.constInj, hc:S.coefHC*S.belpex-S.constInj};
+  return {hp:S.injHP, hc:S.injHC};
+}
+
+function getVolumes(){
+  if(UI.volSource==="manuel"){
+    return {prelHP:+$("m_prelHP").value||0, prelHC:+$("m_prelHC").value||0, injHP:+$("m_injHP").value||0, injHC:+$("m_injHC").value||0, src:"manuel", factor:1, full:true};
+  }
+  const c=consumptionFromReadings();
+  if(!c) return null;
+  return {...annualize(c), src:"suivi", from:c.from, to:c.to};
+}
+
+function calc(v){
+  const gross=v.prelHP+v.prelHC;
+  const injTot=v.injHP+v.injHC;
+  const net=Math.max(0, gross-injTot);
+  const surplus=Math.max(0, injTot-gross);
+  const days=(v.full||v.factor===1)?361:365;
+  const dayFrac=days/365;
+
+  // Luminus (net)
+  const enerMaxx=net*S.enerUnit/100;
+  const vert=net*S.vertUnit/100;
+  const redevF=S.redev*dayFrac;
+  const reduc=enerMaxx*S.reduc/100;
+  const luminus=enerMaxx+vert+redevF-reduc;
+
+  // ELIA (brut)
+  const transport=gross*S.transUnit/100;
+
+  // RESA (brut + ristorno)
+  const distCap=gross*S.distUnit/100;
+  const rist=injTot*S.ristUnit/100;
+  const services=gross*S.servUnit/100;
+  const grdF=S.grdFixe*dayFrac;
+  const distTax=gross*S.distTaxUnit/100;
+  const resa=distCap-rist+services+grdF+distTax;
+
+  // Gouvernement (net) — raccord à 0% TVA
+  const accise=net*S.accise/100;
+  const cotis=net*S.cotis/100;
+  const raccord=net*S.racc/100;
+
+  // surplus payé (edge case)
+  const it=injTariffs();
+  const injPay = surplus>0 ? surplus*((it.hp+it.hc)/2)/100 : 0;
+
+  // TVA 6% sauf raccordement
+  const htva=luminus+transport+resa+accise+cotis+raccord-injPay;
+  const tvaBase=htva-raccord;
+  const tva=tvaBase*0.06;
+  const tvac=htva+tva;
+
+  const cb=S.cbOn?S.cb:0, dom=S.domOn?S.dom:0;
+  const total=tvac-cb-dom;
+
+  return {net,gross,injTot,surplus,enerMaxx,vert,redevF,reduc,luminus,transport,
+          distCap,rist,services,grdF,distTax,resa,accise,cotis,raccord,injPay,it,
+          htva,tva,tvac,cb,dom,total,
+          bLum:luminus, bElia:transport, bResa:resa, bGouv:accise+cotis+raccord};
+}
+
+function renderDecompte(){
+  document.querySelectorAll('#volSource button').forEach(b=>b.classList.toggle('on',b.dataset.src===UI.volSource));
+  $("volManual").style.display=UI.volSource==="manuel"?"block":"none";
+
+  const v=getVolumes();
+  const sum=$("volSummary"), bd=$("breakdown");
+  if(!v || (v.prelHP+v.prelHC+v.injHP+v.injHC)===0){
+    sum.innerHTML=`<p class="note">${UI.volSource==="suivi"?"Ajoute au moins 2 relevés dans l'onglet Suivi, ou bascule en saisie manuelle.":"Saisis tes volumes ci-dessus."}</p>`;
+    bd.innerHTML=`<p class="note">En attente de volumes.</p>`;
+    ["heroTotal","heroPrel","heroInj"].forEach(id=>$(id).textContent="—");
+    $("heroPeriod").textContent="configure tes relevés";return;
+  }
+  const r=calc(v);
+
+  let srcTxt = v.src==="suivi"
+    ? (v.full?`Année complète ${fmtDate(v.from)} → ${fmtDate(v.to)} (${Math.round(v.days)} j)`
+             :`Annualisé depuis ${fmtDate(v.from)} → ${fmtDate(v.to)} (${Math.round(v.days)} j, ×${v.factor.toFixed(2)})`)
+    : "Volumes saisis manuellement";
+  sum.innerHTML=`<p class="note">${srcTxt}</p>
+    <div class="kpi" style="margin-top:8px">
+      <div class="box p"><div class="l">Prélèv. brut</div><div class="n">${kwh(r.gross)}<small> kWh</small></div></div>
+      <div class="box i"><div class="l">Injection</div><div class="n">${kwh(r.injTot)}<small> kWh</small></div></div>
+    </div>
+    <p class="note">Prélèvement <b>net compensé</b> : <b>${kwh(r.net)} kWh</b>${r.surplus>0?` · surplus injecté non consommé : <b>${kwh(r.surplus)} kWh</b>`:""}.</p>`;
+
+  const row=(k,sub,val,credit,pill)=>`<div class="bd-row"><div class="k">${k}${pill?` <span class="pill ${pill}">${pill}</span>`:""}${sub?`<small>${sub}</small>`:""}</div><div class="v ${credit?"credit":""}">${val>=0?"+":"−"} ${eur(Math.abs(val))} €</div></div>`;
+  const blockH=(name,st)=>`<div class="bd-h"><span>${name}</span><span class="st">${eur(st)} €</span></div>`;
+
+  let h="";
+  // Luminus
+  h+=`<div class="bd-block">`+blockH("Luminus · énergie",r.bLum);
+  h+=row("Énergie MaxxFix","net · c€ "+eur(S.enerUnit),r.enerMaxx,false,"net");
+  h+=row("Énergie verte","net",r.vert,false,"net");
+  h+=row("Redevance fixe","",r.redevF,false,"fix");
+  if(r.reduc>0)h+=row("Réduction promo "+eur(S.reduc)+"%","",-r.reduc,true,null);
+  h+=`</div>`;
+  // ELIA
+  h+=`<div class="bd-block">`+blockH("ELIA · transport",r.bElia);
+  h+=row("Puissance souscrite","brut",r.transport,false,"brut");
+  h+=`</div>`;
+  // RESA
+  h+=`<div class="bd-block">`+blockH("RESA · distribution",r.bResa);
+  h+=row("Puissance souscrite","brut",r.distCap,false,"brut");
+  h+=row("Ristorno production","≤10 kWe · sur injection",-r.rist,true,null);
+  h+=row("Services publics","brut",r.services,false,"brut");
+  h+=row("Terme fixe GRD","",r.grdF,false,"fix");
+  h+=row("Autres taxes réseau","soldes · impôts · voirie",r.distTax,false,"brut");
+  h+=`</div>`;
+  // Gouvernement
+  h+=`<div class="bd-block">`+blockH("Gouvernement · taxes",r.bGouv);
+  h+=row("Accise spéciale","net",r.accise,false,"net");
+  h+=row("Cotisation énergie","net",r.cotis,false,"net");
+  h+=row("Redev. raccordement","net · hors TVA",r.raccord,false,"net");
+  h+=`</div>`;
+  // surplus
+  if(r.injPay>0){h+=`<div class="bd-block">`+blockH("Surplus injecté",-r.injPay);
+    h+=row("Rémunération surplus","HP "+eur(r.it.hp)+" · HC "+eur(r.it.hc)+" c€",-r.injPay,true,null);h+=`</div>`;}
+
+  // TVA + total
+  h+=`<div class="bd-sub"><span>Total HTVA</span><span class="v">${eur(r.htva)} €</span></div>`;
+  h+=`<div class="bd-sub"><span>TVA 6 %</span><span class="v">${eur(r.tva)} €</span></div>`;
+  if(r.cb>0)h+=`<div class="bd-sub"><span>Cashback</span><span class="v">− ${eur(r.cb)} €</span></div>`;
+  if(r.dom>0)h+=`<div class="bd-sub"><span>Domiciliation</span><span class="v">− ${eur(r.dom)} €</span></div>`;
+  h+=`<div class="bd-total"><span class="t">Décompte annuel (TVAC)</span><span class="a">${eur0(r.total)} €</span></div>`;
+  bd.innerHTML=h;
+
+  $("heroTotal").textContent=eur0(r.total);
+  $("heroPrel").textContent=kwh(r.gross)+" kWh";
+  $("heroInj").textContent=kwh(r.injTot)+" kWh";
+  $("heroPeriod").textContent=v.src==="suivi"?(v.full?`année complète · ${fmtDate(v.to)}`:`projeté 12 mois · ${fmtDate(v.to)}`):"volumes manuels";
+}
+
+function renderSuivi(){
+  const c=consumptionFromReadings();
+  if(c){
+    const prel=c.prelHP+c.prelHC, inj=c.injHP+c.injHC, net=Math.max(0,prel-inj);
+    $("k_prel").innerHTML=kwh(prel)+"<small> kWh</small>";
+    $("k_inj").innerHTML=kwh(inj)+"<small> kWh</small>";
+    $("k_net").innerHTML=kwh(net)+"<small> kWh</small>";
+    const a=annualize(c);
+    const netA=Math.max(0,(a.prelHP+a.prelHC)-(a.injHP+a.injHC));
+    $("k_proj").innerHTML=kwh(netA)+"<small> kWh net</small>";
+    $("k_span").innerHTML=`Période : <b>${fmtDate(c.from)} → ${fmtDate(c.to)}</b> · ${Math.round(c.days)} jours · ${R.length} relevés.`;
+  }else{
+    ["k_prel","k_inj","k_net","k_proj"].forEach(id=>$(id).innerHTML="—");
+    $("k_span").textContent="Ajoute au moins 2 relevés pour calculer ta consommation.";
+  }
+  const s=sortedReadings(), list=$("readingsList");
+  if(s.length===0){list.innerHTML=`<p class="note">Aucun relevé. Ajoute ton premier index ci-dessus.</p>`;return;}
+  let h="";
+  for(let i=s.length-1;i>=0;i--){
+    const rd=s[i], prev=s[i-1];
+    let del= prev
+      ? `<span class="rdel">+${kwh((rd.prelHP-prev.prelHP)+(rd.prelHC-prev.prelHC))} prél · +${kwh((rd.injHP-prev.injHP)+(rd.injHC-prev.injHC))} inj</span>`
+      : `<span class="rdel">point de départ</span>`;
+    h+=`<div class="reading"><div class="rhead"><span class="rdate">${fmtDate(rd.date)}</span>
+      <span style="display:flex;gap:10px;align-items:center">${del}<button class="btn-x" data-del="${rd.date}" aria-label="Supprimer">✕</button></span></div>
+      <div class="rgrid">
+        <div class="reg p"><span class="ri">☀↓</span><span class="rv">${rd.prelHP}</span></div>
+        <div class="reg p"><span class="ri">☾↓</span><span class="rv">${rd.prelHC}</span></div>
+        <div class="reg i"><span class="ri">☀↑</span><span class="rv">${rd.injHP}</span></div>
+        <div class="reg i"><span class="ri">☾↑</span><span class="rv">${rd.injHC}</span></div>
+      </div></div>`;
+  }
+  list.innerHTML=h;
+  list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{R=R.filter(x=>x.date!==b.dataset.del);saveR();renderSuivi();renderDecompte();flash("Relevé supprimé");});
+}
+
+const SMAP={s_enerUnit:"enerUnit",s_vertUnit:"vertUnit",s_reduc:"reduc",s_redev:"redev",
+  s_transUnit:"transUnit",s_distUnit:"distUnit",s_ristUnit:"ristUnit",s_servUnit:"servUnit",
+  s_distTaxUnit:"distTaxUnit",s_grdFixe:"grdFixe",s_accise:"accise",s_cotis:"cotis",s_racc:"racc",
+  s_injHP:"injHP",s_injHC:"injHC",s_belpex:"belpex",s_coefHP:"coefHP",s_coefHC:"coefHC",s_const:"constInj",
+  s_cb:"cb",s_dom:"dom"};
+
+function fillSettings(){
+  for(const[el,key]of Object.entries(SMAP))$(el).value=S[key];
+  $("s_cbOn").checked=S.cbOn;$("s_domOn").checked=S.domOn;
+  $("lbl_cb").textContent=S.cb;$("lbl_dom").textContent=S.dom;
+  document.querySelectorAll('#injMode button').forEach(b=>b.classList.toggle('on',b.dataset.mode===S.injMode));
+  $("injManual").style.display=S.injMode==="manuel"?"block":"none";
+  $("injBelpex").style.display=S.injMode==="belpex"?"block":"none";
+  updateBelpexPreview();
+}
+function updateBelpexPreview(){
+  if(S.injMode!=="belpex")return;
+  const hp=S.coefHP*S.belpex-S.constInj, hc=S.coefHC*S.belpex-S.constInj;
+  $("belpexPreview").innerHTML=`→ Tarifs surplus : <b>HP ${eur(hp)} · HC ${eur(hc)} c€/kWh</b>`;
+}
+function bindSettings(){
+  for(const[el,key]of Object.entries(SMAP)){
+    $(el).addEventListener("input",()=>{S[key]=+$(el).value||0;saveS();
+      if(el==="s_cb")$("lbl_cb").textContent=S.cb;
+      if(el==="s_dom")$("lbl_dom").textContent=S.dom;
+      updateBelpexPreview();renderDecompte();});
+  }
+  $("s_cbOn").addEventListener("change",()=>{S.cbOn=$("s_cbOn").checked;saveS();renderDecompte();});
+  $("s_domOn").addEventListener("change",()=>{S.domOn=$("s_domOn").checked;saveS();renderDecompte();});
+  document.querySelectorAll('#injMode button').forEach(b=>b.onclick=()=>{S.injMode=b.dataset.mode;saveS();fillSettings();renderDecompte();});
+  $("resetAll").onclick=()=>{if(confirm("Réinitialiser tous les tarifs aux valeurs par défaut ? (tes relevés sont conservés)")){S=structuredClone(DEFAULTS);saveS();fillSettings();renderDecompte();flash("Tarifs réinitialisés");}};
+}
+function bindVolumes(){
+  document.querySelectorAll('#volSource button').forEach(b=>b.onclick=()=>{UI.volSource=b.dataset.src;saveU();renderDecompte();});
+  ["m_prelHP","m_prelHC","m_injHP","m_injHC"].forEach(id=>$(id).addEventListener("input",renderDecompte));
+}
+function bindReadings(){
+  $("addReading").onclick=()=>{
+    const d=$("r_date").value;
+    if(!d){alert("Choisis une date de relevé.");return;}
+    R=R.filter(x=>x.date!==d);
+    R.push({date:d, prelHP:+$("r_prelHP").value||0, prelHC:+$("r_prelHC").value||0, injHP:+$("r_injHP").value||0, injHC:+$("r_injHC").value||0});
+    saveR();
+    ["r_prelHP","r_prelHC","r_injHP","r_injHC","r_date"].forEach(id=>$(id).value="");
+    renderSuivi();renderDecompte();flash("Relevé enregistré");
+  };
+}
+function switchView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="v-"+name));
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
+  window.scrollTo({top:0,behavior:"instant"});
+}
+document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+let flashT;
+function flash(msg){const f=$("flash");f.textContent=msg;f.classList.add("show");clearTimeout(flashT);flashT=setTimeout(()=>f.classList.remove("show"),1600);}
+
+fillSettings();bindSettings();bindVolumes();bindReadings();renderSuivi();renderDecompte();
+
+/* ================= Installation / hors ligne ================= */
+$("appVer").textContent="v"+APP_VERSION;
+
+let swReg=null;
+if("serviceWorker" in navigator && location.protocol!=="file:"){
+  const url="sw.js?v="+encodeURIComponent(APP_VERSION)+"&p="+encodeURIComponent(location.pathname);
+  navigator.serviceWorker.register(url).then(r=>{swReg=r;}).catch(()=>{});
+}
+
+// Android / Chrome : bouton d'installation natif
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault(); deferredPrompt=e;
+  $("btnInstall").hidden=false;
+});
+$("btnInstall").onclick=async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt=null; $("btnInstall").hidden=true;
+};
+window.addEventListener("appinstalled",()=>{$("btnInstall").hidden=true;flash("Application installée");});
+
+// iOS : pas de prompt natif, on explique la manip
+(function(){
+  const iOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const standalone=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if(iOS&&!standalone)$("installHint").hidden=false;
+})();
+
+$("btnUpdate").onclick=async()=>{
+  flash("Recherche…");
+  try{
+    if(swReg){await swReg.update(); if(swReg.active)swReg.active.postMessage("purge");}
+    else if("caches" in window){const k=await caches.keys();await Promise.all(k.map(x=>caches.delete(x)));}
+  }catch(e){}
+  setTimeout(()=>location.reload(),600);
+};
+
+/* ================= Sauvegarde / restauration ================= */
+$("btnExport").onclick=()=>{
+  const data={app:"decompte",version:APP_VERSION,exportedAt:new Date().toISOString(),settings:S,readings:R,ui:UI};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="decompte-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  flash("Sauvegarde exportée");
+};
+$("fileImport").onchange=e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=JSON.parse(fr.result);
+      if(!d||!Array.isArray(d.readings)||typeof d.settings!=="object")throw new Error("format");
+      if(!confirm("Remplacer les relevés et tarifs actuels par ceux de la sauvegarde ?"))return;
+      R=d.readings; S={...DEFAULTS,...d.settings}; UI={volSource:"suivi",...(d.ui||{})};
+      saveR();saveS();saveU();
+      fillSettings();renderSuivi();renderDecompte();
+      flash("Sauvegarde restaurée");
+    }catch(err){alert("Fichier illisible : ce n'est pas une sauvegarde Décompte.");}
+    finally{e.target.value="";}
+  };
+  fr.readAsText(f);
+};
+</script>
+</body>
+</html>
