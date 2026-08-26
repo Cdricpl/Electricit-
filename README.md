@@ -52,6 +52,17 @@ Sur le téléphone, l'app récupère la nouvelle version au prochain lancement a
 du réseau. Le bouton **Vérifier les mises à jour** (onglet *Tarifs*) force le
 rafraîchissement.
 
+## Graphique mensuel
+
+Onglet **Suivi** : prélèvement (vert, vers le haut) et injection (orange, vers le
+bas) mois par mois, sur le modèle de l'app du fournisseur. Fenêtre **6 mois /
+12 mois / Tout**, navigation ‹ › dans le temps, et détail HP/HC sous le
+graphique. Toucher une barre isole le détail de ce mois.
+
+Chaque barre est l'écart entre deux relevés consécutifs, étiquetée par son mois
+d'arrivée — les totaux du graphique correspondent donc exactement aux volumes du
+décompte.
+
 ## Acomptes et solde
 
 Onglet **Acomptes** : les mensualités versées au fournisseur. Deux montants par

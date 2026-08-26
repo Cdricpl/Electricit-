@@ -113,6 +113,19 @@
   .kpi .box .n{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
   .kpi .box .n small{font-size:12px;color:#9fb3a7}
   .kpi .box.p{border-left:3px solid var(--prel)}.kpi .box.i{border-left:3px solid var(--inj)}
+  .chart svg{width:100%;height:auto;display:block}
+  .chart-nav{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .chart-nav button{border:0;background:none;color:var(--accent);font-size:22px;line-height:1;padding:2px 10px;cursor:pointer;font-family:var(--sans)}
+  .chart-nav button[disabled]{color:#cfcdc4;cursor:default}
+  .chart-nav .rng{flex:1;text-align:center;font-size:13px;font-weight:700}
+  .legend{display:flex;gap:16px;justify-content:center;font-size:11px;color:var(--muted);margin-top:8px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .dtl{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--line);font-size:14px}
+  .dtl:first-of-type{border-top:0}
+  .dtl .ri{font-family:var(--mono);font-size:15px;width:32px;flex-shrink:0;letter-spacing:-1px}
+  .dtl.p .ri{color:var(--prel-d)}.dtl.i .ri{color:var(--inj-d)}
+  .dtl .lb{flex:1;line-height:1.3}
+  .dtl .vv{font-family:var(--mono);font-weight:600;white-space:nowrap}
   .pay{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px dashed var(--line)}
   .pay:first-child{border-top:0}
   .pay .m{flex:1;font-size:14px;font-weight:600}
@@ -196,6 +209,26 @@
 
   <!-- ============ SUIVI ============ -->
   <section class="view" id="v-suivi">
+    <h2 class="section">Consommation mensuelle</h2>
+    <div class="card">
+      <div class="seg" id="chartRange">
+        <button data-r="6" class="on">6 mois</button>
+        <button data-r="12">12 mois</button>
+        <button data-r="0">Tout</button>
+      </div>
+      <div class="chart-nav">
+        <button id="chPrev" aria-label="Période précédente">‹</button>
+        <div class="rng" id="chartLabel">—</div>
+        <button id="chNext" aria-label="Période suivante">›</button>
+      </div>
+      <div class="chart" id="chartBox"></div>
+      <div class="legend">
+        <span><i style="background:#3f9a4e"></i>Prélèvement</span>
+        <span><i style="background:#e9930f"></i>Injection</span>
+      </div>
+    </div>
+    <div class="card" id="chartDetail"></div>
+
     <h2 class="section">Bilan sur la période suivie</h2>
     <div class="kpi">
       <div class="box p"><div class="l">Prélèvement brut</div><div class="n" id="k_prel">—<small> kWh</small></div></div>
@@ -360,7 +393,7 @@
 "use strict";
 /* Changer APP_VERSION à chaque modification : nouvelle URL de service worker
    => nouveau cache => les anciens sont purgés automatiquement. */
-const APP_VERSION="1.1.0";
+const APP_VERSION="1.2.0";
 const LS_S="decompte_settings_v2", LS_R="decompte_readings_v2", LS_U="decompte_ui_v2", LS_P="decompte_acomptes_v1";
 const TVA=1.06;
 
@@ -394,7 +427,7 @@ const SEED_READINGS=[
 // à la main ; les autres suivent `first` (1er mois) et `monthly`.
 const DEF_PAY={start:"2025-07", months:12, first:45, monthly:60, over:{}};
 
-let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,{volSource:"suivi"}), P=load(LS_P,DEF_PAY);
+let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,{volSource:"suivi",chartRange:6,chartOff:0,chartSel:null}), P=load(LS_P,DEF_PAY);
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v?(Array.isArray(def)?v:{...def,...v}):structuredClone(def);}catch(e){return structuredClone(def);}}
 function saveS(){localStorage.setItem(LS_S,JSON.stringify(S));}
@@ -584,7 +617,112 @@ function renderDecompte(){
   hs.textContent=(solde>=0?"reste à payer · ":"à rembourser · ")+eur0(Math.abs(solde))+" €";
 }
 
+/* ---------- Graphique mensuel prélèvement / injection ---------- */
+const MON3=["janv","févr","mars","avr","mai","juin","juil","août","sept","oct","nov","déc"];
+// Abréviations d'en-tête : mars, avril, mai et juin ne s'abrègent pas avec un point.
+const MONAB=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+
+// Un point par intervalle entre deux relevés, étiqueté par son mois d'arrivée.
+function monthlyDeltas(){
+  const s=sortedReadings(), out=[];
+  for(let i=1;i<s.length;i++){
+    const a=s[i-1], b=s[i];
+    out.push({key:b.date.slice(0,7), from:a.date, to:b.date,
+      prelHP:b.prelHP-a.prelHP, prelHC:b.prelHC-a.prelHC,
+      injHP:b.injHP-a.injHP, injHC:b.injHC-a.injHC});
+  }
+  return out;
+}
+function niceMax(v){
+  if(!(v>0))return 1;
+  const p=Math.pow(10,Math.floor(Math.log10(v)));
+  for(const m of [1,2,2.5,5]) if(v<=m*p) return m*p;
+  return 10*p;
+}
+function detailRows(d){
+  return [["p","☀↓","Prélèvement heures pleines",d.prelHP],
+          ["p","☾↓","Prélèvement heures creuses",d.prelHC],
+          ["i","☀↑","Injection heures pleines",d.injHP],
+          ["i","☾↑","Injection heures creuses",d.injHC]]
+    .map(([c,ic,lb,v])=>`<div class="dtl ${c}"><span class="ri">${ic}</span><span class="lb">${lb}</span><span class="vv">${eur(v)} kWh</span></div>`).join("");
+}
+
+function renderChart(){
+  const all=monthlyDeltas(), host=$("chartBox"), det=$("chartDetail"), lab=$("chartLabel");
+  document.querySelectorAll("#chartRange button").forEach(b=>b.classList.toggle("on",+b.dataset.r===UI.chartRange));
+
+  if(all.length===0){
+    host.innerHTML=`<p class="note" style="text-align:center;padding:24px 0">Ajoute au moins 2 relevés pour voir le graphique.</p>`;
+    det.innerHTML=""; det.style.display="none"; lab.textContent="—";
+    $("chPrev").disabled=true; $("chNext").disabled=true; return;
+  }
+  det.style.display="";
+
+  const n=UI.chartRange===0?all.length:Math.min(UI.chartRange,all.length);
+  const maxOff=all.length-n;
+  const off=Math.min(Math.max(UI.chartOff||0,0),maxOff);
+  if(off!==UI.chartOff){UI.chartOff=off;saveU();}
+  const end=all.length-off, data=all.slice(end-n,end);
+  $("chPrev").disabled=off>=maxOff; $("chNext").disabled=off<=0;
+
+  const first=data[0], last=data[data.length-1];
+  const shortLbl=k=>MONAB[+k.split("-")[1]-1]+" "+k.split("-")[0];
+  lab.textContent=data.length===1?shortLbl(last.key):shortLbl(first.key)+" – "+shortLbl(last.key);
+
+  const W=340,H=190,PL=4,PR=44,PT=10,PB=26, pw=W-PL-PR, ph=H-PT-PB;
+  let up=0,dn=0;
+  data.forEach(d=>{up=Math.max(up,d.prelHP+d.prelHC);dn=Math.max(dn,d.injHP+d.injHC);});
+  const step=niceMax(Math.max(up,dn,1))/2;
+  const nUp=Math.max(1,Math.ceil(up/step)), nDn=Math.ceil(dn/step);
+  const topV=nUp*step, botV=nDn*step, tot=topV+botV;
+  const y=v=>PT+ph*(topV-v)/tot;
+  const slot=pw/data.length, bw=Math.min(30,slot*0.58);
+
+  let g="";
+  for(let i=-nDn;i<=nUp;i++){
+    const v=i*step, yy=y(v), zero=i===0;
+    g+=`<line x1="${PL}" y1="${yy.toFixed(1)}" x2="${(PL+pw).toFixed(1)}" y2="${yy.toFixed(1)}" stroke="${zero?"#a9a69b":"#e8e5db"}"/>`;
+    g+=`<text x="${(PL+pw+6).toFixed(1)}" y="${(yy+3.4).toFixed(1)}" font-size="9" fill="#6c7771">${Math.round(v)}</text>`;
+  }
+  g+=`<text x="${(PL+pw+6).toFixed(1)}" y="${(H-8)}" font-size="9" fill="#6c7771">kWh</text>`;
+
+  const y0=y(0);
+  data.forEach((d,i)=>{
+    const cx=PL+slot*(i+0.5), p=d.prelHP+d.prelHC, inj=d.injHP+d.injHC;
+    if(UI.chartSel===d.key)
+      g+=`<rect x="${(cx-slot/2).toFixed(1)}" y="${PT}" width="${slot.toFixed(1)}" height="${ph}" fill="#0f513211" rx="3"/>`;
+    if(p>0)  g+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y(p).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y0-y(p)).toFixed(1)}" fill="#3f9a4e" rx="2"/>`;
+    if(inj>0)g+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y0.toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(-inj)-y0).toFixed(1)}" fill="#e9930f" rx="2"/>`;
+    g+=`<rect class="hit" data-k="${d.key}" x="${(cx-slot/2).toFixed(1)}" y="${PT}" width="${slot.toFixed(1)}" height="${ph}" fill="transparent" style="cursor:pointer"/>`;
+    if(!(data.length>8&&i%2===1))
+      g+=`<text x="${cx.toFixed(1)}" y="${H-8}" font-size="9" fill="#6c7771" text-anchor="middle">${MON3[+d.key.split("-")[1]-1]}</text>`;
+  });
+
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prélèvement et injection par mois">${g}</svg>`;
+  host.querySelectorAll(".hit").forEach(r=>r.onclick=()=>{
+    UI.chartSel=UI.chartSel===r.dataset.k?null:r.dataset.k; saveU(); renderChart();
+  });
+
+  const sel=UI.chartSel?data.find(d=>d.key===UI.chartSel):null;
+  const agg=sel||data.reduce((a,d)=>({prelHP:a.prelHP+d.prelHP,prelHC:a.prelHC+d.prelHC,
+                                      injHP:a.injHP+d.injHP,injHC:a.injHC+d.injHC}),
+                                     {prelHP:0,prelHC:0,injHP:0,injHC:0});
+  const title=sel?monthLabel(sel.key):(data.length===1?monthLabel(last.key):monthLabel(first.key)+" – "+monthLabel(last.key));
+  det.innerHTML=`<p class="ttl">Détails ${sel?"du mois":"de la période"}</p>
+    <p class="hint" style="text-transform:capitalize">${title}</p>${detailRows(agg)}
+    <p class="note">${sel?"Touche à nouveau la barre pour revenir au total de la période.":"Touche une barre pour le détail d'un seul mois."}</p>`;
+}
+
+function bindChart(){
+  document.querySelectorAll("#chartRange button").forEach(b=>b.onclick=()=>{
+    UI.chartRange=+b.dataset.r; UI.chartOff=0; UI.chartSel=null; saveU(); renderChart();
+  });
+  $("chPrev").onclick=()=>{UI.chartOff=(UI.chartOff||0)+1;UI.chartSel=null;saveU();renderChart();};
+  $("chNext").onclick=()=>{UI.chartOff=Math.max(0,(UI.chartOff||0)-1);UI.chartSel=null;saveU();renderChart();};
+}
+
 function renderSuivi(){
+  renderChart();
   const c=consumptionFromReadings();
   if(c){
     const prel=c.prelHP+c.prelHC, inj=c.injHP+c.injHC, net=Math.max(0,prel-inj);
@@ -740,7 +878,7 @@ document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>switchView
 let flashT;
 function flash(msg){const f=$("flash");f.textContent=msg;f.classList.add("show");clearTimeout(flashT);flashT=setTimeout(()=>f.classList.remove("show"),1600);}
 
-fillSettings();bindSettings();bindVolumes();bindReadings();bindAcomptes();renderAcomptes();renderSuivi();renderDecompte();
+fillSettings();bindSettings();bindVolumes();bindReadings();bindAcomptes();bindChart();renderAcomptes();renderSuivi();renderDecompte();
 
 /* ================= Installation / hors ligne ================= */
 $("appVer").textContent="v"+APP_VERSION;
@@ -801,7 +939,7 @@ $("fileImport").onchange=e=>{
       const d=JSON.parse(fr.result);
       if(!d||!Array.isArray(d.readings)||typeof d.settings!=="object")throw new Error("format");
       if(!confirm("Remplacer les relevés et tarifs actuels par ceux de la sauvegarde ?"))return;
-      R=d.readings; S={...DEFAULTS,...d.settings}; UI={volSource:"suivi",...(d.ui||{})};
+      R=d.readings; S={...DEFAULTS,...d.settings}; UI={volSource:"suivi",chartRange:6,chartOff:0,chartSel:null,...(d.ui||{})};
       P={...DEF_PAY,...(d.acomptes||{})}; P.over=P.over||{};
       saveR();saveS();saveU();saveP();
       fillSettings();renderAcomptes();renderSuivi();renderDecompte();
