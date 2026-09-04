@@ -8,7 +8,7 @@ const VERSION = PARAMS.get("v") || "dev";
 const PAGE    = PARAMS.get("p") || "./";
 const CACHE   = "decompte-" + VERSION;
 
-const SHELL = [PAGE, "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
+const SHELL = [PAGE, "app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
                "icons/icon-maskable-512.png", "icons/apple-touch-icon.png", "icons/favicon-32.png"];
 
 // Installation : on précharge la coquille, en forçant le réseau
