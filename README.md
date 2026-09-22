@@ -26,11 +26,23 @@ Suit ce qu'il y a à gagner : le total parti au réseau, sa répartition entre l
 deux plages, et le gain par kWh qu'on arrive à consommer au moment où il serait
 parti (≈ 11 c€/kWh, les frais de réseau évités moins le ristorno perdu).
 
-Sur l'année 2025-2026 : **+247 kWh en HP** (prélevé en trop, semaine en journée)
-et **−31 kWh en HC** (injecté en trop). L'injection est plus forte en heures
-creuses (1 684 kWh) qu'en heures pleines (1 431 kWh) alors que les panneaux ne
-produisent qu'en journée : chez RESA le week-end entier compte en heures creuses,
-et c'est de là que vient l'essentiel du gisement.
+### Plages horaires
+
+Réformées par la CWaPE au **1er janvier 2026** pour suivre la production solaire,
+et identiques 7 jours sur 7 :
+
+| | Horaire |
+|---|---|
+| Heures pleines | 7h–11h et 17h–22h |
+| Heures creuses | 11h–17h et 22h–7h |
+
+Le creux de midi est donc en heures **creuses** — d'où une injection plus forte
+en HC (1 684 kWh sur 2025-2026) qu'en HP (1 431 kWh). Le gisement à absorber est
+la fenêtre **11h–17h**.
+
+Avant la réforme : heures pleines 7h–22h en semaine, heures creuses les nuits et
+tout le week-end. Une période à cheval sur le 01/01/2026 mélange les deux
+découpages, et l'app le signale.
 
 ## Ce que l'app dit sur heures pleines / heures creuses
 

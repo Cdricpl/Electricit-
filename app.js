@@ -4,7 +4,7 @@
 /* Tenir APP_VERSION et le ?v= du <script> d'index.html identiques : la page est
    servie réseau d'abord, donc changer cette URL est ce qui garantit qu'un
    téléphone déjà équipé récupère bien le nouveau script. */
-const APP_VERSION = "2.4.0";
+const APP_VERSION = "2.5.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -245,6 +245,16 @@ function renderDecompte(){
    Ventile prélèvement et injection entre heures pleines et heures creuses.
    La facture ne regarde que la somme des deux, mais l'écart par plage dit
    QUAND le surplus se produit — donc quand il y a de l'énergie à absorber. */
+/* Plages wallonnes réformées par la CWaPE au 01/01/2026 : identiques 7 jours
+   sur 7, et calées sur la production solaire — le creux de midi 11h-17h est en
+   heures creuses. Avant cette date : heures pleines 7h-22h en semaine, heures
+   creuses les nuits et tout le week-end. */
+const PLAGE_REFORME="2026-01-01";
+const PLAGES={
+  hp:{icon:"☀", nom:"Heures pleines", horaire:"7h–11h · 17h–22h", quand:"en matinée ou en soirée"},
+  hc:{icon:"☾", nom:"Heures creuses", horaire:"11h–17h · 22h–7h", quand:"en milieu de journée ou la nuit"}
+};
+
 function renderPlages(raw){
   $("plagePeriod").textContent=`Depuis le ${fmtDate(UI.yearStart)} · dernier relevé ${fmtDate(raw.to)}`;
 
@@ -253,35 +263,44 @@ function renderPlages(raw){
       <span class="pbt"><i style="width:${(val/scale*100).toFixed(1)}%;background:${color}"></i></span>
       <span class="pbv">${kwh(val)} kWh</span></div>`;
 
-  const block=(icon,name,when,prel,inj)=>{
+  const block=(p,prel,inj)=>{
     const n=prel-inj, sur=n<0;
     const phrase = sur
-      ? `Tu as <b>injecté ${kwh(-n)} kWh de trop</b> — cette énergie est partie au réseau ${when}.`
-      : `Tu as <b>prélevé ${kwh(n)} kWh de trop</b> — cette énergie t'a été fournie par le réseau ${when}.`;
+      ? `Tu as <b>injecté ${kwh(-n)} kWh de trop</b> — cette énergie est partie au réseau ${p.quand}.`
+      : `Tu as <b>prélevé ${kwh(n)} kWh de trop</b> — cette énergie t'a été fournie par le réseau ${p.quand}.`;
     return `<div class="plage">
-      <div class="ph"><span class="pi">${icon}</span><span class="pn">${name}</span>
+      <div class="ph"><span class="pi">${p.icon}</span><span class="pn">${p.nom}</span>
         <span class="pv ${sur?"sur":"def"}">${sur?"− ":"+ "}${kwh(Math.abs(n))} kWh</span></div>
+      <div class="phr">${p.horaire}</div>
       <p class="psent">${phrase}</p>
       ${bar("prélevé",prel,"#3f9a4e")}${bar("injecté",inj,"#e9930f")}</div>`;
   };
 
-  $("plageRows").innerHTML=
-      block("☀","Heures pleines","en semaine, dans la journée",raw.prelHP,raw.injHP)
-    + block("☾","Heures creuses","la nuit et le week-end",raw.prelHC,raw.injHC);
+  $("plageRows").innerHTML = block(PLAGES.hp,raw.prelHP,raw.injHP) + block(PLAGES.hc,raw.prelHC,raw.injHC);
 
   // --- ce qu'il y a à gagner en déplaçant la consommation ---
   const R=rates(), injTot=raw.injHP+raw.injHC;
-  $("plageRead").innerHTML=
-    `<b>${kwh(injTot)} kWh</b> sont partis au réseau depuis le ${fmtDate(UI.yearStart)} :
+  let t=`<b>${kwh(injTot)} kWh</b> sont partis au réseau depuis le ${fmtDate(UI.yearStart)} :
      ${kwh(raw.injHP)} kWh en heures pleines, ${kwh(raw.injHC)} kWh en heures creuses.
      Chaque kWh que tu consommes au moment où il serait parti te fait gagner
      <b>${eur(R.selfRate)} c€</b> de frais de réseau — jusqu'à <b>${eur(injTot*R.selfRate/100)} €</b>
-     si tu absorbais tout.
-     ${raw.injHC>raw.injHP
-        ? `Le gisement est surtout en <b>heures creuses</b> : chez RESA le week-end entier y compte, et c'est là que tes panneaux produisent sans que tu consommes.`
-        : `Le gisement est surtout en <b>heures pleines</b>, donc en semaine dans la journée.`}
-     <br><br>Déplacer une consommation vers ces moments n'allège pas ton net — la compensation
-     additionne les deux plages — mais allège bien ta facture de réseau.`;
+     si tu absorbais tout.`;
+  t += raw.injHC>raw.injHP
+    ? ` L'essentiel part en <b>heures creuses</b>, donc dans la fenêtre <b>11h–17h</b> : c'est là que tes
+        panneaux produisent le plus. Lance tes machines dans ce créneau plutôt que le soir ou la nuit.`
+    : ` L'essentiel part en <b>heures pleines</b>, donc entre 7h–11h ou 17h–22h. La fenêtre 11h–17h
+        semble déjà bien utilisée.`;
+  t += `<br><br>Déplacer une consommation vers ces moments n'allège pas ton net — la compensation
+        additionne les deux plages — mais allège bien ta facture de réseau.`;
+
+  // La réforme du 01/01/2026 a redécoupé les plages : une période à cheval
+  // additionne deux découpages différents, et la ventilation perd son sens.
+  if(UI.yearStart < PLAGE_REFORME && raw.to >= PLAGE_REFORME)
+    t += `<br><br><b>À nuancer :</b> les plages wallonnes ont changé le 01/01/2026. Avant, les heures
+          pleines couvraient 7h–22h en semaine et les heures creuses les nuits et tout le week-end.
+          Cette période est à cheval : la répartition ci-dessus mélange les deux découpages.`;
+
+  $("plageRead").innerHTML=t;
 }
 
 // Coûts unitaires TVAC, déduits des tarifs saisis.
