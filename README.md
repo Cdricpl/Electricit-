@@ -1,117 +1,81 @@
 # Décompte — électricité prosumer
 
 Application web installable (PWA) qui estime le **décompte annuel d'électricité**
-d'un prosumer wallon : index HP/HC, compensation nette prélèvement − injection,
-tarifs Luminus / ELIA / RESA / taxes, acomptes et solde.
-
-Une fois installée sur le téléphone, elle s'ouvre en plein écran, **fonctionne
-sans connexion**, et garde les données en local (rien n'est envoyé sur Internet).
+d'un prosumer wallon. Une fois sur l'écran d'accueil, elle s'ouvre en plein écran,
+**fonctionne sans connexion**, et garde les données en local.
 
 ## Les quatre onglets
 
-| Onglet | Ce qu'il fait |
+| Onglet | |
 |---|---|
-| **Décompte** | Saisie des index, prélèvement net de l'année en cours, surplus par plage, total du décompte et solde. Une date règle le début de l'année contractuelle (par défaut le 01/07/2026) ; tout ce qui précède sert de point de départ. |
-| **Suivi** | Deux graphiques mensuels seulement : année en cours et année précédente. |
-| **Acomptes** | Les douze mois de l'année contractuelle, chacun modifiable, avec le total et le solde. |
-| **Tarifs** | Le décompte détaillé poste par poste, puis tous les tarifs unitaires. |
+| **Décompte** | Le solde de fin d'année en tête, la plage où consommer, la saisie des index et la liste des relevés. |
+| **Suivi** | Deux graphiques mensuels : année en cours et année précédente. |
+| **Acomptes** | Les douze mois, chacun modifiable, avec le total et le solde. |
+| **Tarifs** | Le décompte détaillé, puis tous les tarifs unitaires. |
 
-## Surplus par plage
+## Plages horaires
 
-Cumul depuis la date de départ, énoncé en clair pour chaque plage : « tu as
-injecté X kWh de trop » ou « tu as prélevé X kWh de trop », avec le prélèvement
-et l'injection en barres comparables.
+Réformées par la CWaPE au **1er janvier 2026**, identiques 7 jours sur 7 :
 
-Suit ce qu'il y a à gagner : le total parti au réseau, sa répartition entre les
-deux plages, et le gain par kWh qu'on arrive à consommer au moment où il serait
-parti (≈ 11 c€/kWh, les frais de réseau évités moins le ristorno perdu).
-
-### Plages horaires
-
-Réformées par la CWaPE au **1er janvier 2026** pour suivre la production solaire,
-et identiques 7 jours sur 7 :
-
-| | Horaire |
+| | |
 |---|---|
 | Heures pleines | 7h–11h et 17h–22h |
 | Heures creuses | 11h–17h et 22h–7h |
 
-Le creux de midi est donc en heures **creuses** — d'où une injection plus forte
-en HC (1 684 kWh sur 2025-2026) qu'en HP (1 431 kWh). Le gisement à absorber est
-la fenêtre **11h–17h**.
+Le creux de midi est donc en heures **creuses** : c'est la fenêtre 11h–17h qui
+capte le pic de production. L'app compare prélèvement et injection sur chaque
+plage et désigne celle où l'injection dépasse le plus — c'est là qu'il y a de
+l'énergie à absorber. Une période à cheval sur le 01/01/2026 mélange l'ancien et
+le nouveau découpage ; l'app le signale.
 
-Avant la réforme : heures pleines 7h–22h en semaine, heures creuses les nuits et
-tout le week-end. Une période à cheval sur le 01/01/2026 mélange les deux
-découpages, et l'app le signale.
-
-## Ce que l'app dit sur heures pleines / heures creuses
-
-La compensation additionne les deux plages : **déplacer une consommation des
-heures creuses vers les heures pleines ne change pas le net.** Une machine
-lancée le jour est alimentée par les panneaux — le prélèvement baisse, mais
-l'injection baisse d'autant, et leur différence reste identique.
-
-Ce qui change réellement le coût, c'est l'**autoconsommation** : un kWh consommé
-pendant la production plutôt qu'injecté puis re-prélevé évite les frais de réseau
-assis sur le prélèvement brut. Pour faire baisser le net lui-même, il n'y a que
-deux leviers : consommer moins au total, ou produire plus.
+La compensation additionne les deux plages : déplacer une consommation de l'une
+à l'autre ne change pas le net facturé, mais consommer pendant la production
+réduit le prélèvement brut, donc les frais de réseau.
 
 ## Périodes
 
-La période d'un décompte est bornée à **douze mois** à partir de la date de
-départ : des relevés plus récents alimentent le suivi, mais pas le décompte de
-l'année écoulée. En cours d'année, les volumes sont ramenés à douze mois
-(× 365 / nombre de jours) ; sous 150 jours l'app signale que l'estimation ignore
-les saisons et reste peu fiable.
+Un décompte couvre **douze mois** à partir de la date de départ. En cours
+d'année, les volumes sont ramenés à douze mois (× 365 / jours) ; sous 150 jours
+l'app signale que la projection reste une projection.
 
 ## Installer sur le GSM
 
-L'app doit être publiée en HTTPS — ici via **GitHub Pages**.
-
 1. **Settings → Pages** → *Source : **GitHub Actions***
-2. Le workflow `.github/workflows/pages.yml` déploie à chaque push sur
-   `claude/gsm-installation-2wop8x`
+2. Le workflow déploie à chaque push sur `claude/gsm-installation-2wop8x`
 
 Adresse : `https://cdricpl.github.io/Electricit-/`
 
-| Téléphone | Manip |
+| | |
 |---|---|
-| **Android / Chrome** | menu ⋮ → *Installer l'application* — ou le bouton dans l'onglet *Tarifs* |
-| **iPhone / Safari** | bouton **Partager** → *Sur l'écran d'accueil* (depuis Safari, pas Chrome) |
+| **Android / Chrome** | menu ⋮ → *Installer l'application* |
+| **iPhone / Safari** | **Partager** → *Sur l'écran d'accueil* (depuis Safari) |
 
 ## Fichiers
 
-| Fichier | Rôle |
+| | |
 |---|---|
 | `index.html` | structure et styles ; charge `app.js?v=<version>` |
 | `app.js` | calculs, rendu, stockage local ; porte `APP_VERSION` |
-| `sw.js` | service worker : mise en cache pour le hors-ligne |
-| `manifest.webmanifest` | nom, icônes, mode plein écran |
-| `icons/` | icônes 192 / 512 / maskable / apple-touch |
+| `sw.js` | service worker : cache hors ligne |
+| `manifest.webmanifest` | nom, icônes, plein écran |
+| `icons/` | 192 / 512 / maskable / apple-touch |
 
-## Mettre à jour l'app
+## Mettre à jour
 
 1. Modifier `index.html` ou `app.js`
-2. **Incrémenter `APP_VERSION`** en haut de `app.js` **et le `?v=` du `<script>`
-   d'`index.html`** — les deux doivent rester identiques
-3. Pousser : GitHub Pages redéploie tout seul
+2. **Incrémenter `APP_VERSION` et le `?v=` du `<script>`** — les deux identiques
+3. Pousser
 
-La page et son script sont servis **réseau d'abord** (seuls les icônes et le
-manifeste restent en cache d'abord) : un téléphone en ligne récupère le nouveau
-code au rechargement suivant. Le `?v=` de l'URL du script est la ceinture et
-les bretelles — il garantit une URL inédite, donc une requête que même un
-ancien cache ne peut pas intercepter.
-
-Le bouton **Vérifier les mises à jour** (onglet *Tarifs*) force le rafraîchissement.
+La page et son script sont servis **réseau d'abord** (seuls icônes et manifeste
+restent en cache d'abord) : un téléphone en ligne récupère le nouveau code au
+rechargement suivant.
 
 ## Sauvegarde
 
-Onglet *Tarifs* → **Application → Sauvegarder mes données** : export/import d'un
-fichier `.json` contenant relevés, tarifs et acomptes. Utile avant de changer de
-téléphone — effacer les données du site supprime tout.
+*Tarifs → Application → Sauvegarde* : export/import d'un `.json` contenant
+relevés, tarifs et acomptes.
 
 ## Tarifs par défaut
 
 Calés sur le décompte réel **05/07/2025 → 30/06/2026 (503,62 € TVAC)** : régler
-la date de départ sur le 01/07/2025 redonne 504 €. La réduction promo de 24 %
-court jusqu'au 04/07/2026 ; la passer à 0 pour projeter l'année suivante.
+la date de départ au 01/07/2025 redonne 504 €.

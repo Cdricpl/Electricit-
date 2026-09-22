@@ -4,7 +4,7 @@
 /* Tenir APP_VERSION et le ?v= du <script> d'index.html identiques : la page est
    servie réseau d'abord, donc changer cette URL est ce qui garantit qu'un
    téléphone déjà équipé récupère bien le nouveau script. */
-const APP_VERSION = "2.5.0";
+const APP_VERSION = "3.0.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -169,94 +169,18 @@ const payTotal = () => paySchedule().reduce((s,x)=>s+x.amount,0);
 
 /* ================= Vue Décompte ================= */
 
-function renderDecompte(){
-  const v=currentYear();
-  const raw=periodConsumption(UI.yearStart,yearEnd());
-  const paid=payTotal();
-
-  if(!v){
-    ["heroTotal","heroPrel","heroInj"].forEach(id=>$(id).textContent="—");
-    $("heroPeriod").textContent="ajoute tes index";
-    $("heroSolde").textContent="";
-    $("netPeriod").textContent="Il faut deux relevés pour calculer une consommation.";
-    $("netVal").textContent="—";
-    $("netSub").textContent="";
-    $("kPrel").innerHTML="—<small> kWh</small>";
-    $("kInj").innerHTML="—<small> kWh</small>";
-    $("advice").innerHTML="";
-    $("plagePeriod").textContent="—"; $("plageRows").innerHTML=""; $("plageRead").innerHTML="";
-    $("calcBasis").textContent="En attente de relevés.";
-    ["cHtva","cTva","cTotal","cPaid","cSolde"].forEach(id=>$(id).textContent="—");
-    $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
-    return;
-  }
-
-  const r=calc(v);
-  const solde=r.total-paid;
-
-  // --- Prélèvement net, sur les volumes réellement relevés ---
-  const gross=raw.prelHP+raw.prelHC, inj=raw.injHP+raw.injHC, net=gross-inj;
-  $("netPeriod").textContent=`Du ${fmtDate(raw.from)} au ${fmtDate(raw.to)} · ${Math.round(raw.days)} jours`;
-  $("netVal").textContent=signed(net);
-  $("netVal").parentElement.className="netbig"+(net<=0?" credit":"");
-  $("netSub").innerHTML = net>0
-    ? `Prélèvement − injection. C'est ce volume qui te sera facturé en énergie.`
-    : `Tu injectes plus que tu ne prélèves : <b>aucune énergie facturée</b> sur cette période.`;
-  $("kPrel").innerHTML=kwh(gross)+"<small> kWh</small>";
-  $("kInj").innerHTML=kwh(inj)+"<small> kWh</small>";
-  const R=rates();
-  $("advice").innerHTML = net>0
-    ? `Chaque kWh de net te coûte <b>${eur(R.netRate)} c€</b> d'énergie et de taxes.`
-    : `Rien ne t'est facturé en énergie tant que le net reste sous zéro. Mais descendre plus bas ne rapporte presque rien : le surplus n'est racheté que <b>${eur(R.injRate)} c€/kWh</b> contre les <b>${eur(R.netRate)} c€</b> qu'il vaut en compensation.`;
-  renderPlages(raw);
-
-  // --- Le calcul ---
-  $("calcBasis").textContent = v.full
-    ? `Année complète · ${fmtDate(v.from)} → ${fmtDate(v.to)}`
-    : `Projeté sur 12 mois depuis ${Math.round(v.days)} jours de relevés (×${v.factor.toFixed(2)})`;
-  // Étirer quelques semaines sur un an ignore les saisons : un mois d'été
-  // produit beaucoup et consomme peu, l'inverse en hiver.
-  $("calcWarn").hidden = v.full || v.days>=150;
-  if(!$("calcWarn").hidden)
-    $("calcWarn").innerHTML=`<b>Estimation encore peu fiable.</b> ${Math.round(v.days)} jours étirés sur
-      12 mois, sans tenir compte des saisons : un mois d'été produit beaucoup et consomme peu,
-      l'hiver fait l'inverse. Le chiffre se stabilisera au fil des relevés.`;
-  $("cHtva").textContent=eur(r.htva)+" €";
-  $("cTva").textContent=eur(r.tva)+" €";
-  $("cTotal").textContent=eur0(r.total)+" €";
-  $("cPaid").textContent="− "+eur(paid)+" €";
-  $("cSoldeLbl").innerHTML=(solde>=0?"Reste à payer":"À te rembourser")+`<small>décompte − acomptes</small>`;
-  $("cSolde").textContent=eur0(Math.abs(solde))+" €";
-  $("cSolde").className="a "+(solde>=0?"due":"credit");
-
-  // --- En-tête ---
-  $("heroTotal").textContent=eur0(r.total);
-  $("heroPrel").textContent=kwh(r.gross)+" kWh";
-  $("heroInj").textContent=kwh(r.injTot)+" kWh";
-  $("heroPeriod").textContent=v.full?`année complète · ${fmtDate(v.to)}`:`projeté 12 mois · ${fmtDate(v.to)}`;
-  const hs=$("heroSolde");
-  hs.className="solde-line "+(solde>=0?"due":"credit");
-  hs.textContent=(solde>=0?"reste à payer · ":"à rembourser · ")+eur0(Math.abs(solde))+" €";
-
-  renderBreakdown(r,v);
-}
-
-/* ---------- Surplus par plage ----------
-   Ventile prélèvement et injection entre heures pleines et heures creuses.
-   La facture ne regarde que la somme des deux, mais l'écart par plage dit
-   QUAND le surplus se produit — donc quand il y a de l'énergie à absorber. */
 /* Plages wallonnes réformées par la CWaPE au 01/01/2026 : identiques 7 jours
-   sur 7, et calées sur la production solaire — le creux de midi 11h-17h est en
-   heures creuses. Avant cette date : heures pleines 7h-22h en semaine, heures
-   creuses les nuits et tout le week-end. */
+   sur 7 et calées sur la production solaire — le creux de midi est en heures
+   creuses. Avant : heures pleines 7h-22h en semaine, creuses nuits et week-ends. */
 const PLAGE_REFORME="2026-01-01";
 const PLAGES={
-  hp:{icon:"☀", nom:"Heures pleines", horaire:"7h–11h · 17h–22h", quand:"en matinée ou en soirée"},
-  hc:{icon:"☾", nom:"Heures creuses", horaire:"11h–17h · 22h–7h", quand:"en milieu de journée ou la nuit"}
+  hp:{icon:"☀", nom:"Heures pleines", horaire:"7h–11h · 17h–22h", creneau:"entre 7h et 11h, ou 17h et 22h"},
+  hc:{icon:"☾", nom:"Heures creuses", horaire:"11h–17h · 22h–7h", creneau:"entre 11h et 17h"}
 };
 
 function renderPlages(raw){
-  $("plagePeriod").textContent=`Depuis le ${fmtDate(UI.yearStart)} · dernier relevé ${fmtDate(raw.to)}`;
+  $("pWhen").textContent=`depuis le ${fmtDate(UI.yearStart)}`
+    + (UI.yearStart < PLAGE_REFORME && raw.to >= PLAGE_REFORME ? " · plages modifiées le 01/01/2026" : "");
 
   const scale=Math.max(raw.prelHP,raw.prelHC,raw.injHP,raw.injHC,1);
   const bar=(label,val,color)=>`<div class="pb"><span class="pbl">${label}</span>
@@ -265,52 +189,48 @@ function renderPlages(raw){
 
   const block=(p,prel,inj)=>{
     const n=prel-inj, sur=n<0;
-    const phrase = sur
-      ? `Tu as <b>injecté ${kwh(-n)} kWh de trop</b> — cette énergie est partie au réseau ${p.quand}.`
-      : `Tu as <b>prélevé ${kwh(n)} kWh de trop</b> — cette énergie t'a été fournie par le réseau ${p.quand}.`;
     return `<div class="plage">
-      <div class="ph"><span class="pi">${p.icon}</span><span class="pn">${p.nom}</span>
+      <div class="ph"><span class="pi">${p.icon}</span>
+        <span class="pn">${p.nom}<small>${p.horaire}</small></span>
         <span class="pv ${sur?"sur":"def"}">${sur?"− ":"+ "}${kwh(Math.abs(n))} kWh</span></div>
-      <div class="phr">${p.horaire}</div>
-      <p class="psent">${phrase}</p>
       ${bar("prélevé",prel,"#3f9a4e")}${bar("injecté",inj,"#e9930f")}</div>`;
   };
+  $("pRows").innerHTML = block(PLAGES.hp,raw.prelHP,raw.injHP) + block(PLAGES.hc,raw.prelHC,raw.injHC);
 
-  $("plageRows").innerHTML = block(PLAGES.hp,raw.prelHP,raw.injHP) + block(PLAGES.hc,raw.prelHC,raw.injHC);
-
-  // --- ce qu'il y a à gagner en déplaçant la consommation ---
-  const R=rates(), injTot=raw.injHP+raw.injHC;
-  let t=`<b>${kwh(injTot)} kWh</b> sont partis au réseau depuis le ${fmtDate(UI.yearStart)} :
-     ${kwh(raw.injHP)} kWh en heures pleines, ${kwh(raw.injHC)} kWh en heures creuses.
-     Chaque kWh que tu consommes au moment où il serait parti te fait gagner
-     <b>${eur(R.selfRate)} c€</b> de frais de réseau — jusqu'à <b>${eur(injTot*R.selfRate/100)} €</b>
-     si tu absorbais tout.`;
-  t += raw.injHC>raw.injHP
-    ? ` L'essentiel part en <b>heures creuses</b>, donc dans la fenêtre <b>11h–17h</b> : c'est là que tes
-        panneaux produisent le plus. Lance tes machines dans ce créneau plutôt que le soir ou la nuit.`
-    : ` L'essentiel part en <b>heures pleines</b>, donc entre 7h–11h ou 17h–22h. La fenêtre 11h–17h
-        semble déjà bien utilisée.`;
-  t += `<br><br>Déplacer une consommation vers ces moments n'allège pas ton net — la compensation
-        additionne les deux plages — mais allège bien ta facture de réseau.`;
-
-  // La réforme du 01/01/2026 a redécoupé les plages : une période à cheval
-  // additionne deux découpages différents, et la ventilation perd son sens.
-  if(UI.yearStart < PLAGE_REFORME && raw.to >= PLAGE_REFORME)
-    t += `<br><br><b>À nuancer :</b> les plages wallonnes ont changé le 01/01/2026. Avant, les heures
-          pleines couvraient 7h–22h en semaine et les heures creuses les nuits et tout le week-end.
-          Cette période est à cheval : la répartition ci-dessus mélange les deux découpages.`;
-
-  $("plageRead").innerHTML=t;
+  // Le verdict désigne la plage où l'injection dépasse le plus le prélèvement :
+  // c'est là que la production part au réseau, donc là qu'il y a à absorber.
+  const nHP=raw.prelHP-raw.injHP, nHC=raw.prelHC-raw.injHC;
+  const v=$("pVerdict");
+  if(nHP>=0 && nHC>=0) v.innerHTML=`<span class="va">=</span><span>Aucun surplus à absorber.</span>`;
+  else{
+    const p = nHC<nHP ? PLAGES.hc : PLAGES.hp;
+    v.innerHTML=`<span class="va">→</span><span>Consomme ${p.creneau}.</span>`;
+  }
 }
 
-// Coûts unitaires TVAC, déduits des tarifs saisis.
-function rates(){
-  const netRate=(S.enerUnit*(1-S.reduc/100)+S.vertUnit+S.accise+S.cotis)*1.06+S.racc;
-  const it=injTariffs();
-  // Un kWh consommé au moment où il partait au réseau évite les frais assis sur
-  // le prélèvement brut, mais fait perdre le ristorno assis sur l'injection.
-  const selfRate=(S.transUnit+S.distUnit+S.servUnit+S.distTaxUnit-S.ristUnit)*1.06;
-  return {netRate, selfRate, injRate:Math.max(0,(it.hp+it.hc)/2)*1.06};
+function renderDecompte(){
+  const v=currentYear();
+  const raw=periodConsumption(UI.yearStart,yearEnd());
+  const paid=payTotal();
+
+  if(!v){
+    $("hBig").textContent="—"; $("hBig").className="big";
+    $("hVerd").textContent=""; $("hSub").textContent=""; $("hWarn").hidden=true;
+    $("pWhen").textContent="—"; $("pRows").innerHTML=""; $("pVerdict").innerHTML="";
+    $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
+    return;
+  }
+
+  const r=calc(v), solde=r.total-paid;
+  $("hBig").textContent=eur0(Math.abs(solde))+" €";
+  $("hBig").className="big "+(solde>=0?"due":"credit");
+  $("hVerd").textContent=solde>=0?"à payer":"à te rembourser";
+  $("hSub").textContent=`décompte ${eur0(r.total)} € · acomptes ${eur0(paid)} €`;
+  $("hWarn").hidden = v.full || v.days>=150;
+  if(!$("hWarn").hidden) $("hWarn").textContent=`projection sur ${Math.round(v.days)} jours`;
+
+  renderPlages(raw);
+  renderBreakdown(r,v);
 }
 
 function renderBreakdown(r,v){
@@ -341,31 +261,23 @@ function renderBreakdown(r,v){
   if(r.cb>0)h+=`<div class="bd-sub"><span>Cashback</span><span class="v">− ${eur(r.cb)} €</span></div>`;
   if(r.dom>0)h+=`<div class="bd-sub"><span>Domiciliation</span><span class="v">− ${eur(r.dom)} €</span></div>`;
   h+=`<div class="bd-total"><span class="t">Décompte annuel (TVAC)</span><span class="a">${eur0(r.total)} €</span></div>`;
-  h+=`<p class="note">${v.full?"Année complète.":"Projeté sur 12 mois depuis "+Math.round(v.days)+" jours."}</p>`;
   $("breakdown").innerHTML=h;
 }
 
 function renderReadings(){
-  const s=sortedReadings(), list=$("readingsList");
-  if(s.length===0){list.innerHTML=`<p class="note">Aucun relevé.</p>`;return;}
-  let h="";
-  for(let i=s.length-1;i>=0;i--){
-    const rd=s[i], prev=s[i-1];
-    const del = prev
-      ? `<span class="rdel">+${kwh((rd.prelHP-prev.prelHP)+(rd.prelHC-prev.prelHC))} prél · +${kwh((rd.injHP-prev.injHP)+(rd.injHC-prev.injHC))} inj</span>`
-      : `<span class="rdel">point de départ</span>`;
-    h+=`<div class="reading"><div class="rhead"><span class="rdate">${fmtDate(rd.date)}</span>
-      <span style="display:flex;gap:10px;align-items:center">${del}<button class="btn-x" data-del="${rd.date}" aria-label="Supprimer">✕</button></span></div>
+  const list=$("readingsList"), srt=sortedReadings();
+  if(srt.length===0){list.innerHTML=`<p class="note">Aucun relevé.</p>`;return;}
+  list.innerHTML=srt.slice().reverse().map(rd=>`<div class="reading">
+      <div class="rhead"><span class="rdate">${fmtDate(rd.date)}</span>
+        <button class="btn-x" data-del="${rd.date}" aria-label="Supprimer">✕</button></div>
       <div class="rgrid">
         <div class="reg p"><span class="ri">☀↓</span><span class="rv">${rd.prelHP}</span></div>
         <div class="reg p"><span class="ri">☾↓</span><span class="rv">${rd.prelHC}</span></div>
         <div class="reg i"><span class="ri">☀↑</span><span class="rv">${rd.injHP}</span></div>
         <div class="reg i"><span class="ri">☾↑</span><span class="rv">${rd.injHC}</span></div>
-      </div></div>`;
-  }
-  list.innerHTML=h;
+      </div></div>`).join("");
   list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
-    R=R.filter(x=>x.date!==b.dataset.del);saveR();renderAll();flash("Relevé supprimé");
+    R=R.filter(x=>x.date!==b.dataset.del);saveR();renderAll();flash("Supprimé");
   });
 }
 
@@ -409,7 +321,7 @@ function niceMax(v){
 }
 
 function chartSvg(data){
-  if(data.length===0) return `<p class="note" style="text-align:center;padding:22px 0">Pas encore de relevé sur cette période.</p>`;
+  if(data.length===0) return `<p class="empty">Pas encore de relevé.</p>`;
   const W=340,H=190,PL=4,PR=44,PT=10,PB=26, pw=W-PL-PR, ph=H-PT-PB;
   let up=0,dn=0;
   data.forEach(d=>{up=Math.max(up,d.prelHP+d.prelHC);dn=Math.max(dn,d.injHP+d.injHC);});
@@ -447,54 +359,41 @@ function chartTotals(data){
 }
 
 function renderSuivi(){
-  const curFrom=UI.yearStart;
   const prevFrom=yearAdd(UI.yearStart,-1), prevTo=dayAdd(UI.yearStart,-1);
-  const cur=monthlyDeltas(curFrom,yearEnd()), prev=monthlyDeltas(prevFrom,prevTo);
-
-  $("curTitle").textContent="Depuis le "+fmtDate(curFrom);
-  $("chartCur").innerHTML=chartSvg(cur);
-  $("curTot").innerHTML=chartTotals(cur);
-
+  $("curTitle").textContent="Depuis le "+fmtDate(UI.yearStart);
   $("prevTitle").textContent=fmtDate(prevFrom)+" → "+fmtDate(prevTo);
-  $("chartPrev").innerHTML=chartSvg(prev);
-  $("prevTot").innerHTML=chartTotals(prev);
+  $("chartCur").innerHTML=chartSvg(monthlyDeltas(UI.yearStart,yearEnd()));
+  $("chartPrev").innerHTML=chartSvg(monthlyDeltas(prevFrom,prevTo));
 }
 
 /* ================= Vue Acomptes ================= */
 
 function renderAcomptes(){
-  const sch=paySchedule(), total=sch.reduce((s,x)=>s+x.amount,0);
-  $("a_total").innerHTML=eur(total)+"<small> €</small>";
-  $("a_defLbl").textContent=eur0(P.monthly);
+  const sch=paySchedule(), total=sch.reduce((a,x)=>a+x.amount,0);
+  $("a_total").innerHTML=eur0(total)+"<small> €</small>";
 
   const v=currentYear();
   if(v){
     const solde=calc(v).total-total;
-    $("a_solde").innerHTML=(solde<0?"− ":"")+eur(Math.abs(solde))+"<small> €</small>";
-    $("a_note").innerHTML=solde>=0
-      ? `Décompte estimé <b>${eur0(calc(v).total)} €</b> − acomptes <b>${eur(total)} €</b> : il resterait <b>${eur(solde)} €</b> à payer.`
-      : `Décompte estimé <b>${eur0(calc(v).total)} €</b> − acomptes <b>${eur(total)} €</b> : <b>${eur(-solde)} €</b> te seraient remboursés.`;
-  }else{
-    $("a_solde").innerHTML="—";
-    $("a_note").textContent="Le solde s'affichera dès que le décompte pourra être calculé.";
-  }
+    $("a_solde").innerHTML=(solde<0?"− ":"")+eur0(Math.abs(solde))+"<small> €</small>";
+  }else $("a_solde").innerHTML="—";
 
   $("a_list").innerHTML=sch.map(x=>`<div class="pay${x.edited?" edited":""}">
       <div class="m">${monthLabel(x.key)}</div>
-      <input type="number" step="0.01" min="0" inputmode="decimal" data-k="${x.key}" value="${x.amount}" aria-label="Acompte de ${monthLabel(x.key)}">
+      <input type="number" step="0.01" min="0" inputmode="decimal" data-k="${x.key}" value="${x.amount}" aria-label="${monthLabel(x.key)}">
       <span class="cur">€</span>
-      <button class="rst" data-rst="${x.key}" title="Remettre au montant habituel" aria-label="Remettre au montant habituel">↺</button>
+      <button class="rst" data-rst="${x.key}" aria-label="Montant habituel">↺</button>
     </div>`).join("");
 
   $("a_list").querySelectorAll("input[data-k]").forEach(inp=>{
     inp.addEventListener("change",()=>{
       const k=inp.dataset.k, val=+inp.value;
       if(inp.value===""||isNaN(val)) delete P.over[k]; else P.over[k]=val;
-      saveP(); renderAcomptes(); renderDecompte(); flash("Acompte enregistré");
+      saveP(); renderAcomptes(); renderDecompte(); flash("Enregistré");
     });
   });
   $("a_list").querySelectorAll("[data-rst]").forEach(b=>b.onclick=()=>{
-    delete P.over[b.dataset.rst]; saveP(); renderAcomptes(); renderDecompte(); flash("Montant habituel rétabli");
+    delete P.over[b.dataset.rst]; saveP(); renderAcomptes(); renderDecompte();
   });
 }
 
@@ -509,7 +408,6 @@ const SMAP={s_enerUnit:"enerUnit",s_vertUnit:"vertUnit",s_reduc:"reduc",s_redev:
 function fillSettings(){
   for(const[el,key]of Object.entries(SMAP))$(el).value=S[key];
   $("s_cbOn").checked=S.cbOn;$("s_domOn").checked=S.domOn;
-  $("lbl_cb").textContent=S.cb;$("lbl_dom").textContent=S.dom;
   document.querySelectorAll("#injMode button").forEach(b=>b.classList.toggle("on",b.dataset.mode===S.injMode));
   $("injManual").style.display=S.injMode==="manuel"?"block":"none";
   $("injBelpex").style.display=S.injMode==="belpex"?"block":"none";
@@ -524,8 +422,6 @@ function bindSettings(){
   for(const[el,key]of Object.entries(SMAP)){
     $(el).addEventListener("input",()=>{
       S[key]=+$(el).value||0; saveS();
-      if(el==="s_cb")$("lbl_cb").textContent=S.cb;
-      if(el==="s_dom")$("lbl_dom").textContent=S.dom;
       updateBelpexPreview(); renderDecompte(); renderAcomptes();
     });
   }

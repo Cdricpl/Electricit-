@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Décompte — électricité prosumer</title>
-<meta name="description" content="Décompte annuel d'électricité pour prosumer : index HP/HC, prélèvement net, estimation TVAC et acomptes. Fonctionne hors ligne.">
+<meta name="description" content="Décompte annuel d'électricité pour prosumer : index HP/HC, acomptes, solde de fin d'année. Fonctionne hors ligne.">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#16201c">
 <link rel="manifest" href="manifest.webmanifest">
@@ -26,44 +26,105 @@
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
-  header{background:var(--ink);color:#eef2ef;padding:calc(18px + env(safe-area-inset-top)) 18px 22px;position:relative;overflow:hidden}
+
+  header{background:var(--ink);color:#eef2ef;padding:calc(18px + env(safe-area-inset-top)) 18px 24px;position:relative;overflow:hidden}
   header::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 2px,transparent 2px 22px);pointer-events:none}
   .brand{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
-  .brand h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.02em}
+  .brand h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.02em}
   .brand .sub{font-size:11px;color:#8fa79a;text-transform:uppercase;letter-spacing:.14em}
-  .readout{position:relative;z-index:1;margin-top:16px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-  .readout .label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#8fa79a}
-  .readout .big{font-family:var(--mono);font-size:40px;font-weight:600;line-height:1;letter-spacing:-.01em;margin-top:4px}
-  .readout .big .cur{font-size:20px;color:#9fb3a7;margin-left:2px}
-  .readout .period{font-size:11px;color:#7e948a;margin-top:6px}
-  .readout .solde-line{font-size:12px;font-weight:700;margin-top:5px}
-  .readout .solde-line.credit{color:#8fd39d}
-  .readout .solde-line.due{color:#f2b56b}
-  .readout .poles{display:flex;flex-direction:column;gap:6px;text-align:right;flex-shrink:0}
-  .pole{font-family:var(--mono);font-size:12px;display:flex;align-items:center;gap:6px;justify-content:flex-end}
-  .pole b{font-size:14px}
-  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-  .dot.p{background:var(--prel)}.dot.i{background:var(--inj)}
+  .hero{position:relative;z-index:1;margin-top:18px}
+  .hero .lab{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#8fa79a}
+  .hero .big{font-family:var(--mono);font-size:46px;font-weight:600;line-height:1;margin-top:5px}
+  .hero .big.credit{color:#8fd39d}.hero .big.due{color:#f2b56b}
+  .hero .verd{font-size:14px;font-weight:700;margin-top:7px}
+  .hero .sub{font-family:var(--mono);font-size:12px;color:#7e948a;margin-top:8px}
+  .hero .warn{font-size:11px;color:#f2b56b;margin-top:7px}
+
   nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -6px 20px -14px rgba(22,32,28,.3);padding-bottom:env(safe-area-inset-bottom)}
   nav.tabs button{flex:1;border:0;background:none;padding:11px 4px 9px;cursor:pointer;font-family:var(--sans);color:var(--muted);font-size:11px;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:3px;border-top:2px solid transparent}
   nav.tabs button .ic{font-size:18px;line-height:1}
   nav.tabs button.active{color:var(--accent);border-top-color:var(--accent)}
+
   main{padding:16px calc(16px + env(safe-area-inset-right)) 16px calc(16px + env(safe-area-inset-left));max-width:680px;margin:0 auto}
   .view{display:none}.view.active{display:block}
-  h2.section{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:22px 0 10px;font-weight:700}
-  h2.section:first-child{margin-top:6px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
-  .card .ttl{font-weight:700;font-size:15px;margin:0 0 2px}
-  .card .hint{font-size:12px;color:var(--muted);margin:0 0 12px}
-  .field{margin-bottom:12px}
+  h2.section{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:20px 0 9px;font-weight:700}
+  h2.section:first-child{margin-top:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:15px;margin-bottom:12px}
+  .card .when{font-family:var(--mono);font-size:11px;color:var(--muted);margin:0 0 12px}
+
+  .field{margin-bottom:11px}
   .field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
   .field .u{color:var(--muted);font-weight:400}
-  input[type=number],input[type=text],input[type=date],select{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-family:var(--mono);font-size:15px;background:#fbfaf6;color:var(--ink);-webkit-appearance:none;appearance:none}
-  select{font-family:var(--sans)}
-  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  input[type=number],input[type=text],input[type=date]{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;font-family:var(--mono);font-size:15px;background:#fbfaf6;color:var(--ink);-webkit-appearance:none;appearance:none}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .grid4{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+  button.primary{width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:12px;cursor:pointer;font-family:var(--sans);margin-top:3px}
+  button.primary:active{transform:translateY(1px)}
+  button.ghost{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-weight:600;font-size:14px;padding:11px;border-radius:12px;cursor:pointer;font-family:var(--sans)}
+
+  /* --- plages --- */
+  .plage{padding:12px 0;border-top:1px dashed var(--line)}
+  .plage:first-child{border-top:0}
+  .plage .ph{display:flex;align-items:baseline;gap:8px}
+  .plage .pi{font-size:15px;width:20px;flex-shrink:0;text-align:center}
+  .plage .pn{flex:1;font-weight:700;font-size:14px}
+  .plage .pn small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400}
+  .plage .pv{font-family:var(--mono);font-weight:700;font-size:18px;white-space:nowrap}
+  .plage .pv.sur{color:var(--inj-d)}.plage .pv.def{color:var(--prel-d)}
+  .pb{display:flex;align-items:center;gap:8px;margin-top:5px;padding-left:28px;font-family:var(--mono);font-size:11px}
+  .pb .pbl{width:46px;color:var(--muted);flex-shrink:0}
+  .pb .pbt{flex:1;height:9px;background:#ece9e0;border-radius:5px;overflow:hidden}
+  .pb .pbt i{display:block;height:100%;border-radius:5px}
+  .pb .pbv{width:64px;text-align:right;font-weight:600;flex-shrink:0}
+  .verdict{display:flex;align-items:center;gap:9px;margin-top:14px;padding-top:13px;border-top:2px solid var(--ink);font-size:15px;font-weight:700;line-height:1.35}
+  .verdict .va{color:var(--accent);font-size:19px;flex-shrink:0}
+
+  /* --- relevés --- */
+  .reading{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow)}
+  .reading .rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+  .reading .rdate{font-weight:700;font-size:14px}
+  .reading .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+  .reg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px}
+  .reg .ri{font-size:14px;width:28px;flex-shrink:0;letter-spacing:-1px}
+  .reg .rv{font-weight:600}
+  .reg.p .ri{color:var(--prel-d)}.reg.i .ri{color:var(--inj-d)}
+  .btn-x{background:none;border:0;color:var(--danger);font-size:18px;cursor:pointer;padding:0 2px;line-height:1}
+
+  /* --- acomptes --- */
+  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .kpi .box{background:var(--ink);color:#eef2ef;border-radius:12px;padding:12px 13px}
+  .kpi .box .l{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#8fa79a}
+  .kpi .box .n{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
+  .kpi .box .n small{font-size:12px;color:#9fb3a7}
+  .pay{display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px dashed var(--line)}
+  .pay:first-child{border-top:0}
+  .pay .m{flex:1;font-size:14px;font-weight:600;text-transform:capitalize}
+  .pay input{width:96px;text-align:right;padding:7px 10px}
+  .pay .cur{font-family:var(--mono);font-size:13px;color:var(--muted)}
+  .pay.edited .m{color:var(--accent)}
+  .pay .rst{background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;visibility:hidden}
+  .pay.edited .rst{visibility:visible}
+
+  /* --- graphiques --- */
+  .chart svg{width:100%;height:auto;display:block}
+  .chart .empty{font-size:12px;color:var(--muted);text-align:center;padding:22px 0;margin:0}
+  .legend{display:flex;gap:16px;justify-content:center;font-size:11px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  /* --- détail tarifaire --- */
+  .bd-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--line);margin-top:14px}
+  .bd-h:first-child{margin-top:0}
+  .bd-h .st{font-family:var(--mono);color:var(--ink)}
+  .bd-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px dashed var(--line);font-size:14px}
+  .bd-row .v{font-family:var(--mono);font-weight:600;white-space:nowrap}
+  .bd-row .v.credit{color:var(--inj-d)}
+  .bd-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:2px solid var(--ink)}
+  .bd-total .t{font-weight:700;font-size:15px}
+  .bd-total .a{font-family:var(--mono);font-weight:700;font-size:24px}
+  .bd-sub{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:4px}
+  .bd-sub .v{font-family:var(--mono)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:11px}
   .seg button{flex:1;border:0;background:#fbfaf6;padding:9px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--sans)}
   .seg button.on{background:var(--accent);color:#fff}
   .toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
@@ -75,38 +136,8 @@
   .sw .tr::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
   .sw input:checked + .tr{background:var(--accent)}
   .sw input:checked + .tr::before{transform:translateX(18px)}
-  .sw input:focus-visible + .tr{outline:2px solid var(--accent);outline-offset:2px}
-
-  .netbig{font-family:var(--mono);font-size:44px;font-weight:600;line-height:1;letter-spacing:-.02em;margin:8px 0 2px}
-  .netbig small{font-size:16px;color:var(--muted);font-weight:400}
-  .netbig.credit{color:var(--prel-d)}
-  .advice{background:#f2f6f2;border-left:3px solid var(--accent);border-radius:8px;padding:11px 13px;margin-top:14px;font-size:13px;line-height:1.55;color:var(--ink-soft)}
-  .advice + .advice{margin-top:9px}
-  .advice b{color:var(--accent)}
-  .advice.warn{background:#fdf4e7;border-left-color:var(--inj-d)}
-  .plage{padding:13px 0;border-top:1px dashed var(--line)}
-  .plage:first-child{border-top:0}
-  .plage .ph{display:flex;align-items:baseline;gap:8px}
-  .plage .pi{font-size:15px;width:20px;flex-shrink:0;text-align:center}
-  .plage .pn{flex:1;font-weight:700;font-size:14px}
-  .plage .pv{font-family:var(--mono);font-weight:700;font-size:18px;white-space:nowrap}
-  .plage .pv.sur{color:var(--inj-d)}
-  .plage .pv.def{color:var(--prel-d)}
-  .plage .phr{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:1px;padding-left:28px}
-  .plage .psent{font-size:13px;line-height:1.45;margin:7px 0 0;padding-left:28px}
-  .pb{display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:28px;font-family:var(--mono);font-size:11px}
-  .pb .pbl{width:48px;color:var(--muted);flex-shrink:0}
-  .pb .pbt{flex:1;height:10px;background:#ece9e0;border-radius:5px;overflow:hidden}
-  .pb .pbt i{display:block;height:100%;border-radius:5px}
-  .pb .pbv{width:66px;text-align:right;font-weight:600;flex-shrink:0}
-  .pay{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px dashed var(--line)}
-  .pay:first-child{border-top:0}
-  .pay .m{flex:1;font-size:14px;font-weight:600;text-transform:capitalize}
-  .pay input{width:100px;text-align:right;padding:8px 10px}
-  .pay .cur{font-family:var(--mono);font-size:13px;color:var(--muted)}
-  .pay.edited .m{color:var(--accent)}
-  .pay .rst{background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:0 2px;line-height:1;visibility:hidden}
-  .pay.edited .rst{visibility:visible}
+  .note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:7px}
+  details summary{font-size:12px;font-weight:700;color:var(--accent);cursor:pointer;margin-top:8px}
 
   .save-flash{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:9px 16px;border-radius:20px;opacity:0;transition:.25s;z-index:40;pointer-events:none}
   .save-flash.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -117,18 +148,13 @@
 <body>
 
 <header>
-  <div class="brand"><h1>Décompte</h1><span class="sub">électricité · prosumer</span></div>
-  <div class="readout">
-    <div>
-      <div class="label">Décompte annuel estimé</div>
-      <div class="big"><span id="heroTotal">—</span><span class="cur"> €</span></div>
-      <div class="period" id="heroPeriod">ajoute tes index</div>
-      <div class="solde-line" id="heroSolde"></div>
-    </div>
-    <div class="poles">
-      <div class="pole"><span class="dot p"></span>prélèv. <b id="heroPrel">—</b></div>
-      <div class="pole"><span class="dot i"></span>inject. <b id="heroInj">—</b></div>
-    </div>
+  <div class="brand"><h1>Décompte</h1><span class="sub">électricité</span></div>
+  <div class="hero">
+    <div class="lab">Fin d'année</div>
+    <div class="big" id="hBig">—</div>
+    <div class="verd" id="hVerd"></div>
+    <div class="sub" id="hSub"></div>
+    <div class="warn" id="hWarn" hidden></div>
   </div>
 </header>
 
@@ -137,75 +163,36 @@
   <!-- ============ DÉCOMPTE ============ -->
   <section class="view active" id="v-decompte">
 
-    <h2 class="section">Prélèvement net</h2>
+    <h2 class="section">Quand consommer</h2>
     <div class="card">
-      <p class="hint" id="netPeriod">—</p>
-      <div class="netbig"><span id="netVal">—</span><small> kWh</small></div>
-      <p class="note" id="netSub"></p>
-      <div class="kpi" style="margin-top:12px">
-        <div class="box p"><div class="l">Prélevé</div><div class="n" id="kPrel">—<small> kWh</small></div></div>
-        <div class="box i"><div class="l">Injecté</div><div class="n" id="kInj">—<small> kWh</small></div></div>
-      </div>
-      <div class="advice" id="advice"></div>
+      <p class="when" id="pWhen">—</p>
+      <div id="pRows"></div>
+      <div class="verdict" id="pVerdict"></div>
     </div>
 
-    <h2 class="section">Surplus par plage</h2>
+    <h2 class="section">Nouveau relevé</h2>
     <div class="card">
-      <p class="hint" id="plagePeriod">—</p>
-      <div id="plageRows"></div>
-      <div class="advice" id="plageRead"></div>
-    </div>
-
-    <h2 class="section">Le calcul</h2>
-    <div class="card">
-      <p class="hint" id="calcBasis">—</p>
-      <div class="advice warn" id="calcWarn" hidden></div>
-      <div class="bd-sub" style="margin-top:12px"><span>Total HTVA</span><span class="v" id="cHtva">—</span></div>
-      <div class="bd-sub"><span>TVA 6 %</span><span class="v" id="cTva">—</span></div>
-      <div class="bd-total"><span class="t">Décompte annuel (TVAC)</span><span class="a" id="cTotal">—</span></div>
-      <div class="bd-sub" style="margin-top:12px"><span>Acomptes versés</span><span class="v" id="cPaid">—</span></div>
-      <div class="solde"><span class="t" id="cSoldeLbl">Solde</span><span class="a" id="cSolde">—</span></div>
-      <p class="note">Le détail poste par poste est dans l'onglet <b>Tarifs</b>.</p>
-    </div>
-
-    <h2 class="section">Ajouter un relevé</h2>
-    <div class="card">
-      <p class="hint">Recopie les 4 index de ton compteur : ☀ heures pleines · ☾ heures creuses.</p>
-      <div class="field"><label>Date du relevé</label><input type="date" id="r_date"></div>
+      <div class="field"><label>Date</label><input type="date" id="r_date"></div>
       <div class="grid4">
         <div class="field"><label>☀↓ Prélèv. HP</label><input type="number" id="r_prelHP" step="0.01" inputmode="decimal" placeholder="kWh"></div>
         <div class="field"><label>☾↓ Prélèv. HC</label><input type="number" id="r_prelHC" step="0.01" inputmode="decimal" placeholder="kWh"></div>
         <div class="field"><label>☀↑ Inject. HP</label><input type="number" id="r_injHP" step="0.01" inputmode="decimal" placeholder="kWh"></div>
         <div class="field"><label>☾↑ Inject. HC</label><input type="number" id="r_injHC" step="0.01" inputmode="decimal" placeholder="kWh"></div>
       </div>
-      <button class="primary" id="addReading">Enregistrer le relevé</button>
-      <div class="field" style="margin:14px 0 0">
-        <label>Le décompte démarre le</label>
-        <input type="date" id="yearStart">
-      </div>
-      <p class="note">Tout ce qui précède cette date est ignoré par le décompte, et sert de point de départ.</p>
+      <button class="primary" id="addReading">Enregistrer</button>
+      <div class="field" style="margin:13px 0 0"><label>Année à partir du</label><input type="date" id="yearStart"></div>
     </div>
 
-    <h2 class="section">Relevés enregistrés</h2>
+    <h2 class="section">Relevés</h2>
     <div id="readingsList"></div>
   </section>
 
   <!-- ============ SUIVI ============ -->
   <section class="view" id="v-suivi">
-    <h2 class="section">Année en cours</h2>
-    <div class="card">
-      <p class="ttl" id="curTitle">—</p>
-      <div class="chart" id="chartCur"></div>
-      <div id="curTot"></div>
-    </div>
-
-    <h2 class="section">Année précédente</h2>
-    <div class="card">
-      <p class="ttl" id="prevTitle">—</p>
-      <div class="chart" id="chartPrev"></div>
-      <div id="prevTot"></div>
-    </div>
-
+    <h2 class="section" id="curTitle">Année en cours</h2>
+    <div class="card"><div class="chart" id="chartCur"></div></div>
+    <h2 class="section" id="prevTitle">Année précédente</h2>
+    <div class="card"><div class="chart" id="chartPrev"></div></div>
     <div class="legend">
       <span><i style="background:#3f9a4e"></i>Prélèvement</span>
       <span><i style="background:#e9930f"></i>Injection</span>
@@ -214,14 +201,12 @@
 
   <!-- ============ ACOMPTES ============ -->
   <section class="view" id="v-acomptes">
-    <h2 class="section">Acomptes de l'année</h2>
+    <h2 class="section">Acomptes</h2>
     <div class="kpi">
-      <div class="box"><div class="l">Total des acomptes</div><div class="n" id="a_total">—<small> €</small></div></div>
-      <div class="box"><div class="l">Solde estimé</div><div class="n" id="a_solde">—<small> €</small></div></div>
+      <div class="box"><div class="l">Versé</div><div class="n" id="a_total">—<small> €</small></div></div>
+      <div class="box"><div class="l">Solde</div><div class="n" id="a_solde">—<small> €</small></div></div>
     </div>
-    <p class="note" id="a_note"></p>
-    <div class="card" id="a_list" style="margin-top:14px"></div>
-    <p class="note">Corrige un mois directement sur sa ligne ; ↺ le remet à <span id="a_defLbl">60</span> €.</p>
+    <div class="card" id="a_list"></div>
   </section>
 
   <!-- ============ TARIFS ============ -->
@@ -229,23 +214,8 @@
 
     <h2 class="section">Décompte détaillé</h2>
     <div class="card"><div id="breakdown"></div></div>
-    <details>
-      <summary>Comment se calcule ce décompte ?</summary>
-      <p class="note">
-        Il reprend la structure de la facture Luminus, en quatre blocs.
-        <b>net</b> = sur le prélèvement compensé (prélèvement − injection, toutes plages confondues) :
-        énergie et taxes. <b>brut</b> = sur tout le prélèvement au compteur : transport ELIA et distribution RESA.
-        Le <b>ristorno production décentralisée</b> rend une partie de la distribution au prorata de l'injection.
-        <b>fixe</b> = redevances indépendantes des kWh.<br><br>
-        Comme la compensation additionne les deux plages, la distinction heures pleines / creuses
-        <b>ne joue pas</b> sur l'énergie — d'où le « simple tarif » du compteur. Le seul volume qui
-        compte pour l'énergie, c'est le <b>net annuel</b>.
-      </p>
-    </details>
 
-    <p class="note" style="margin:16px 0 0">Valeurs calées sur le décompte réel 05/07/2025 → 30/06/2026 (503,62 € TVAC). Ajuste-les quand tes tarifs changent.</p>
-
-    <h2 class="section">Luminus — énergie <span style="text-transform:none;font-weight:400;color:var(--muted)">· base nette</span></h2>
+    <h2 class="section">Luminus — énergie</h2>
     <div class="card">
       <div class="grid2">
         <div class="field"><label>Énergie MaxxFix <span class="u">c€/kWh</span></label><input type="number" id="s_enerUnit" step="0.01"></div>
@@ -253,15 +223,14 @@
         <div class="field"><label>Réduction promo <span class="u">%</span></label><input type="number" id="s_reduc" step="0.1"></div>
         <div class="field"><label>Redevance fixe <span class="u">€/an</span></label><input type="number" id="s_redev" step="0.01"></div>
       </div>
-      <p class="note">La réduction 24 % est une promo de 12 mois (jusqu'au 04/07/2026). Passe-la à 0 pour projeter l'année suivante.</p>
     </div>
 
-    <h2 class="section">ELIA — transport <span style="text-transform:none;font-weight:400;color:var(--muted)">· base brute</span></h2>
+    <h2 class="section">ELIA — transport</h2>
     <div class="card">
-      <div class="field"><label>Transport (tout compris) <span class="u">c€/kWh brut</span></label><input type="number" id="s_transUnit" step="0.001"></div>
+      <div class="field"><label>Transport <span class="u">c€/kWh brut</span></label><input type="number" id="s_transUnit" step="0.001"></div>
     </div>
 
-    <h2 class="section">RESA — distribution <span style="text-transform:none;font-weight:400;color:var(--muted)">· base brute</span></h2>
+    <h2 class="section">RESA — distribution</h2>
     <div class="card">
       <div class="grid2">
         <div class="field"><label>Puissance souscrite <span class="u">c€/kWh brut</span></label><input type="number" id="s_distUnit" step="0.001"></div>
@@ -272,7 +241,7 @@
       </div>
     </div>
 
-    <h2 class="section">Gouvernement — taxes <span style="text-transform:none;font-weight:400;color:var(--muted)">· base nette</span></h2>
+    <h2 class="section">Taxes</h2>
     <div class="card">
       <div class="grid2">
         <div class="field"><label>Accise spéciale <span class="u">c€/kWh</span></label><input type="number" id="s_accise" step="0.0001"></div>
@@ -281,9 +250,8 @@
       </div>
     </div>
 
-    <h2 class="section">Surplus d'injection <span style="text-transform:none;font-weight:400;color:var(--muted)">· si inj. &gt; prélèv.</span></h2>
+    <h2 class="section">Surplus d'injection</h2>
     <div class="card">
-      <p class="hint">Ne s'applique que si l'injection dépasse le prélèvement sur l'année (net à 0).</p>
       <div class="seg" id="injMode">
         <button data-mode="manuel" class="on">Tarif direct</button>
         <button data-mode="belpex">Via Belpex</button>
@@ -305,31 +273,28 @@
       </div>
     </div>
 
-    <h2 class="section">Crédits ponctuels</h2>
+    <h2 class="section">Crédits</h2>
     <div class="card">
-      <div class="toggle"><span>Cashback bienvenue (<span id="lbl_cb">130</span> €)</span>
+      <div class="toggle"><span>Cashback bienvenue</span>
         <label class="sw"><input type="checkbox" id="s_cbOn"><span class="tr"></span></label></div>
-      <div class="field" style="margin-top:8px"><label>Montant cashback <span class="u">€</span></label><input type="number" id="s_cb" step="1"></div>
-      <div class="toggle"><span>Réduction domiciliation (<span id="lbl_dom">20</span> €)</span>
+      <div class="field" style="margin-top:8px"><label>Montant <span class="u">€</span></label><input type="number" id="s_cb" step="1"></div>
+      <div class="toggle"><span>Réduction domiciliation</span>
         <label class="sw"><input type="checkbox" id="s_domOn"><span class="tr"></span></label></div>
-      <div class="field" style="margin-top:8px"><label>Montant domiciliation <span class="u">€</span></label><input type="number" id="s_dom" step="1"></div>
+      <div class="field" style="margin-top:8px"><label>Montant <span class="u">€</span></label><input type="number" id="s_dom" step="1"></div>
     </div>
 
-    <button class="ghost" id="resetAll">Réinitialiser les tarifs par défaut</button>
-    <p class="note">TVA 6 % sur énergie, réseau et termes fixes. Redevance de raccordement à 0 %.</p>
+    <button class="ghost" id="resetAll">Réinitialiser les tarifs</button>
 
     <h2 class="section">Application</h2>
     <div class="card">
-      <p class="ttl">Décompte <span id="appVer" style="font-family:var(--mono);font-size:12px;color:var(--muted)">—</span></p>
-      <p class="hint">Installée sur ton téléphone, elle s'ouvre en plein écran et fonctionne sans connexion. Tes données restent sur cet appareil.</p>
+      <p class="when">Décompte <span id="appVer">—</span></p>
       <button class="primary" id="btnInstall" hidden>Installer sur l'écran d'accueil</button>
-      <p class="note" id="installHint" hidden>Sur iPhone : bouton <b>Partager</b> en bas de Safari → <b>Sur l'écran d'accueil</b>.</p>
-      <button class="ghost" id="btnUpdate" style="margin-top:8px">Vérifier les mises à jour</button>
+      <p class="note" id="installHint" hidden>iPhone : <b>Partager</b> → <b>Sur l'écran d'accueil</b>.</p>
+      <button class="ghost" id="btnUpdate">Vérifier les mises à jour</button>
       <details>
-        <summary>Sauvegarder mes données</summary>
-        <p class="note">Le fichier exporté contient relevés, tarifs et acomptes. Garde-le : effacer les données du site supprime tout.</p>
-        <button class="ghost" id="btnExport" style="margin-top:6px">Exporter (fichier .json)</button>
-        <label class="ghost" for="fileImport" style="display:block;margin-top:8px;text-align:center">Importer une sauvegarde</label>
+        <summary>Sauvegarde</summary>
+        <button class="ghost" id="btnExport" style="margin-top:8px">Exporter (.json)</button>
+        <label class="ghost" for="fileImport" style="display:block;margin-top:8px;text-align:center">Importer</label>
         <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
       </details>
     </div>
@@ -345,6 +310,6 @@
 
 <div class="save-flash" id="flash">Enregistré</div>
 
-<script src="app.js?v=2.5.0"></script>
+<script src="app.js?v=3.0.0"></script>
 </body>
 </html>
