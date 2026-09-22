@@ -84,6 +84,15 @@
   .advice + .advice{margin-top:9px}
   .advice b{color:var(--accent)}
   .advice.warn{background:#fdf4e7;border-left-color:var(--inj-d)}
+  .lev{padding:11px 0;border-top:1px dashed var(--line)}
+  .lev:first-child{border-top:0}
+  .lev .lh{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .lev .ln{font-weight:600;font-size:14px;line-height:1.3}
+  .lev .lv{font-family:var(--mono);font-weight:700;font-size:17px;white-space:nowrap;color:var(--prel-d)}
+  .lev .lv.zero{color:var(--muted);font-size:14px;font-weight:600}
+  .lev .ls{font-size:12px;color:var(--muted);margin-top:3px}
+  .lev .lnet{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .lev.best{background:#f2f6f2;border-radius:10px;padding:11px 12px;margin-top:6px;border-top:0}
   .advice.warn b{color:var(--inj-d)}
 
   .bd-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--line);margin-top:14px}
@@ -184,7 +193,19 @@
         <div class="box p"><div class="l">Prélevé</div><div class="n" id="kPrel">—<small> kWh</small></div></div>
         <div class="box i"><div class="l">Injecté</div><div class="n" id="kInj">—<small> kWh</small></div></div>
       </div>
-      <div id="advice"></div>
+      <div class="advice" id="advice"></div>
+    </div>
+
+    <h2 class="section">Équilibrer</h2>
+    <div class="card">
+      <p class="hint" id="eqGap">—</p>
+      <div class="advice warn" id="eqDayNight"></div>
+      <div class="field" style="margin:14px 0 4px">
+        <label>Si je change de <span class="u">kWh sur l'année</span></label>
+        <input type="number" id="eqKwh" step="50" min="0" inputmode="numeric" value="200">
+      </div>
+      <div id="eqRows"></div>
+      <p class="note" id="eqFoot"></p>
     </div>
 
     <h2 class="section">Le calcul</h2>

@@ -16,6 +16,22 @@ sans connexion**, et garde les données en local (rien n'est envoyé sur Interne
 | **Acomptes** | Les douze mois de l'année contractuelle, chacun modifiable, avec le total et le solde. |
 | **Tarifs** | Le décompte détaillé poste par poste, puis tous les tarifs unitaires. |
 
+## L'onglet Équilibrer
+
+Un simulateur compare les trois leviers à volume égal, avec les tarifs saisis :
+
+| Levier | Effet sur le net | Ce qu'il rapporte |
+|---|---|---|
+| Déplacer de la nuit vers la journée | **aucun** | frais de réseau évités (≈ 11 c€/kWh) |
+| Consommer moins au total | −1 kWh par kWh | énergie + taxes + frais de réseau (≈ 35 c€/kWh) |
+| Produire plus | −1 kWh par kWh | énergie + taxes + ristorno (≈ 25 c€/kWh) |
+
+Les montants s'adaptent à la position du net : une fois passé sous zéro, couper
+la consommation ne rapporte plus l'énergie (déjà à zéro), seulement le réseau et
+le rachat du surplus — d'où une chute de 35 à 16 c€/kWh. Viser **zéro** et non le
+négatif : au-delà, un kWh injecté n'est racheté que ~2 c€ au lieu des ~22 c€
+qu'il vaut en compensation.
+
 ## Ce que l'app dit sur heures pleines / heures creuses
 
 La compensation additionne les deux plages : **déplacer une consommation des

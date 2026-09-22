@@ -1,7 +1,7 @@
 "use strict";
 /* Changer APP_VERSION à chaque modification : nouvelle URL de service worker
    => nouveau cache => les anciens sont purgés automatiquement. */
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.1.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -181,6 +181,7 @@ function renderDecompte(){
     $("kPrel").innerHTML="—<small> kWh</small>";
     $("kInj").innerHTML="—<small> kWh</small>";
     $("advice").innerHTML="";
+    $("eqGap").textContent="—"; $("eqDayNight").innerHTML=""; $("eqRows").innerHTML=""; $("eqFoot").textContent="";
     $("calcBasis").textContent="En attente de relevés.";
     ["cHtva","cTva","cTotal","cPaid","cSolde"].forEach(id=>$(id).textContent="—");
     $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
@@ -200,7 +201,12 @@ function renderDecompte(){
     : `Tu injectes plus que tu ne prélèves : <b>aucune énergie facturée</b> sur cette période.`;
   $("kPrel").innerHTML=kwh(gross)+"<small> kWh</small>";
   $("kInj").innerHTML=kwh(inj)+"<small> kWh</small>";
-  renderAdvice(net, raw);
+  const annualNet=(v.prelHP+v.prelHC)-(v.injHP+v.injHC);
+  const unreliable=!v.full && v.days<150;
+  $("advice").innerHTML = net>0
+    ? `Chaque kWh de net te coûte <b>${eur(rates().netRate)} c€</b> d'énergie et de taxes. L'onglet ci-dessous dit quoi faire pour le réduire.`
+    : `L'énergie ne t'est pas facturée tant que le net reste à zéro ou en dessous. Mais descendre bien en dessous ne rapporte presque rien — voir ci-dessous.`;
+  renderEquilibrer(annualNet, raw, unreliable);
 
   // --- Le calcul ---
   $("calcBasis").textContent = v.full
@@ -233,34 +239,76 @@ function renderDecompte(){
   renderBreakdown(r,v);
 }
 
-// Ce qui fait vraiment bouger la facture, calculé depuis les tarifs saisis.
-function renderAdvice(net, raw){
-  const netRate  = (S.enerUnit*(1-S.reduc/100)+S.vertUnit+S.accise+S.cotis)*1.06 + S.racc; // c€/kWh TVAC
-  const selfRate = (S.transUnit+S.distUnit+S.servUnit+S.distTaxUnit-S.ristUnit)*1.06;      // c€/kWh TVAC
-  let h="";
+/* ---------- Leviers pour équilibrer ----------
+   Sur une année : prélèvement brut = C − S, injection = P − S, où S est la part
+   de la consommation couverte directement par la production. Donc
+   net = (C−S) − (P−S) = C − P : le net ne dépend que des totaux, jamais du
+   moment où l'on consomme. Déplacer une consommation vers la journée ne change
+   que le brut et l'injection — c'est-à-dire les frais de réseau, pas le net. */
+function rates(){
+  const grossRate=(S.transUnit+S.distUnit+S.servUnit+S.distTaxUnit)*1.06; // c€/kWh prélevé au compteur
+  const ristRate = S.ristUnit*1.06;                                       // c€/kWh injecté (crédit)
+  const netRate  =(S.enerUnit*(1-S.reduc/100)+S.vertUnit+S.accise+S.cotis)*1.06+S.racc;
+  const it=injTariffs();
+  const injRate=Math.max(0,(it.hp+it.hc)/2)*1.06;                         // rachat du surplus
+  return {grossRate, ristRate, netRate, injRate, selfRate:grossRate-ristRate};
+}
 
-  if(net>0){
-    h+=`<div class="advice">Pour tomber à zéro, il te reste <b>${kwh(net)} kWh</b> de net à effacer,
-        soit <b>${eur(net*netRate/100)} €</b> d'énergie et de taxes. Chaque kWh de net te coûte
-        <b>${eur(netRate)} c€</b>.</div>`;
-  }else{
-    h+=`<div class="advice">Tu es à <b>${kwh(-net)} kWh</b> d'injection nette : l'énergie ne t'est pas
-        facturée sur cette période. Au-delà de zéro, le surplus n'est racheté qu'au tarif d'injection,
-        bien plus bas que les <b>${eur(netRate)} c€/kWh</b> que vaut un kWh compensé.</div>`;
-  }
+// Net réel de l'année contractuelle précédente, quand elle est complète.
+function previousYearNet(){
+  const c=periodConsumption(yearAdd(UI.yearStart,-1), dayAdd(UI.yearStart,-1));
+  if(!c || c.days<355) return null;
+  return {net:(c.prelHP+c.prelHC)-(c.injHP+c.injHC), from:c.from, to:c.to};
+}
 
-  h+=`<div class="advice warn">Heures pleines ou heures creuses : <b>ça ne change rien</b> à ton net.
-      La compensation additionne tes deux plages (${signed(raw.prelHP-raw.injHP)} en HP,
-      ${signed(raw.prelHC-raw.injHC)} en HC) et seule leur somme est facturée. Déplacer une machine de la
-      nuit vers le jour déplace aussi ton injection d'autant : le net ne bouge pas.</div>`;
+function renderEquilibrer(annualNet, raw, unreliable){
+  const R=rates();
+  const q=Math.max(0,+$("eqKwh").value||0);
+  const pos=Math.max(0,annualNet);            // part encore facturée en énergie
+  const onNet=Math.min(q,pos);                // ce qui efface vraiment du net facturé
+  const beyond=Math.max(0,q-pos);             // ce qui bascule en surplus injecté
 
-  h+=`<div class="advice">Ce qui compte, c'est <b>consommer pendant que tes panneaux produisent</b>.
-      Un kWh autoconsommé au lieu d'être injecté puis re-prélevé t'économise <b>${eur(selfRate)} c€</b>
-      de frais de réseau (transport, distribution, services et taxes, moins le ristorno).
-      Pour faire baisser le net lui-même, il n'y a que deux leviers : consommer moins au total,
-      ou produire plus.</div>`;
+  // --- écart à zéro ---
+  const prev=previousYearNet();
+  let gap = annualNet>0
+    ? `Il te reste <b>${kwh(annualNet)} kWh</b> de net à effacer pour finir à zéro.`
+    : `Tu es à <b>${kwh(-annualNet)} kWh</b> sous zéro : au-delà, chaque kWh injecté n'est racheté que <b>${eur(R.injRate)} c€</b> au lieu des <b>${eur(R.netRate)} c€</b> qu'il vaut en compensation.`;
+  if(unreliable && prev)
+    gap += ` <span style="color:var(--muted)">Projection encore instable ; l'an dernier (${fmtDate(prev.from)} → ${fmtDate(prev.to)}) tu as terminé à ${signed(prev.net)} kWh.</span>`;
+  $("eqGap").innerHTML=gap;
 
-  $("advice").innerHTML=h;
+  // --- la réponse à la question jour / nuit ---
+  $("eqDayNight").innerHTML=`<b>Jour ou nuit ne change pas ton net.</b> Ta compensation additionne les
+    deux plages (${signed(raw.prelHP-raw.injHP)} en HP, ${signed(raw.prelHC-raw.injHC)} en HC) et seule
+    leur somme compte. Une machine lancée à midi est nourrie par tes panneaux : ton prélèvement baisse,
+    mais ton injection baisse d'autant. Le net ne bouge pas — en revanche la facture, oui.`;
+
+  const lev=(name,sub,dNet,dEur,best)=>`<div class="lev${best?" best":""}">
+      <div class="lh"><span class="ln">${name}</span>
+        <span class="lv${dEur<=0.005?" zero":""}">${dEur<=0.005?"—":"− "+eur(dEur)+" €"}</span></div>
+      <div class="ls">${sub}</div>
+      <div class="lnet">net ${dNet===0?"inchangé":signed(-dNet)+" kWh"}</div>
+    </div>`;
+
+  const gainShift = q*R.selfRate/100;
+  const gainLess  = (onNet*R.netRate + q*R.grossRate + beyond*R.injRate)/100;
+  const gainMore  = (onNet*R.netRate + q*R.ristRate  + beyond*R.injRate)/100;
+  const best=Math.max(gainShift,gainLess,gainMore);
+
+  $("eqRows").innerHTML=
+      lev(`Déplacer ${kwh(q)} kWh de la nuit vers la journée`,
+          `Autoconsommés au lieu d'être injectés puis re-prélevés · ${eur(R.selfRate)} c€/kWh de frais de réseau évités`,
+          0, gainShift, gainShift===best)
+    + lev(`Consommer ${kwh(q)} kWh de moins sur l'année`,
+          `Énergie et taxes sur le net, plus les frais de réseau sur le brut`,
+          q, gainLess, gainLess===best)
+    + lev(`Produire ${kwh(q)} kWh de plus`,
+          `Énergie et taxes sur le net, plus le ristorno sur l'injection`,
+          q, gainMore, gainMore===best);
+
+  $("eqFoot").innerHTML=`Un kWh de net vaut <b>${eur(R.netRate)} c€</b>, un kWh prélevé au compteur
+    <b>${eur(R.grossRate)} c€</b> de frais de réseau. Le déplacement vers la journée n'agit que dans la
+    limite de ce que tes panneaux produisent à cet instant.`;
 }
 
 function renderBreakdown(r,v){
@@ -330,6 +378,7 @@ function bindDecompte(){
     ["r_prelHP","r_prelHC","r_injHP","r_injHC","r_date"].forEach(id=>$(id).value="");
     renderAll(); flash("Relevé enregistré");
   };
+  $("eqKwh").addEventListener("input",()=>renderDecompte());
   $("yearStart").value=UI.yearStart;
   $("yearStart").addEventListener("change",()=>{
     if(!$("yearStart").value){$("yearStart").value=UI.yearStart;return;}
