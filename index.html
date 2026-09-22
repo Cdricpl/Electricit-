@@ -92,71 +92,12 @@
   .plage .pv{font-family:var(--mono);font-weight:700;font-size:18px;white-space:nowrap}
   .plage .pv.sur{color:var(--inj-d)}
   .plage .pv.def{color:var(--prel-d)}
-  .plage .pc{font-size:11px;color:var(--muted);margin-top:1px;padding-left:28px}
+  .plage .psent{font-size:13px;line-height:1.45;margin:7px 0 0;padding-left:28px}
   .pb{display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:28px;font-family:var(--mono);font-size:11px}
   .pb .pbl{width:48px;color:var(--muted);flex-shrink:0}
   .pb .pbt{flex:1;height:10px;background:#ece9e0;border-radius:5px;overflow:hidden}
   .pb .pbt i{display:block;height:100%;border-radius:5px}
   .pb .pbv{width:66px;text-align:right;font-weight:600;flex-shrink:0}
-  .ptab{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-  .ptab th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:right;padding:5px 0;border-bottom:1px solid var(--line);font-weight:700}
-  .ptab th:first-child{text-align:left}
-  .ptab td{padding:6px 0;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)}
-  .ptab td:first-child{text-align:left;font-family:var(--sans);text-transform:capitalize}
-  .ptab td.sur{color:var(--inj-d)} .ptab td.def{color:var(--prel-d)}
-  .advice.warn b{color:var(--inj-d)}
-
-  .bd-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--line);margin-top:14px}
-  .bd-h:first-child{margin-top:0}
-  .bd-h .st{font-family:var(--mono);color:var(--ink)}
-  .bd-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px dashed var(--line);font-size:14px}
-  .bd-row .k{display:flex;flex-direction:column}
-  .bd-row .k small{font-size:11px;color:var(--muted)}
-  .bd-row .v{font-family:var(--mono);font-weight:600;white-space:nowrap}
-  .bd-row .v.credit{color:var(--inj-d)}
-  .bd-total{display:flex;align-items:baseline;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:2px solid var(--ink)}
-  .bd-total .t{font-weight:700;font-size:15px}
-  .bd-total .a{font-family:var(--mono);font-weight:700;font-size:26px}
-  .bd-sub{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:4px}
-  .bd-sub .v{font-family:var(--mono)}
-  .solde{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:14px;padding-top:14px;border-top:2px solid var(--ink)}
-  .solde .t{font-weight:700;font-size:15px;line-height:1.3}
-  .solde .t small{display:block;font-size:11px;color:var(--muted);font-weight:400}
-  .solde .a{font-family:var(--mono);font-weight:700;font-size:26px;white-space:nowrap}
-  .solde .a.credit{color:var(--prel-d)}
-  .solde .a.due{color:var(--danger)}
-
-  .reading{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;box-shadow:var(--shadow)}
-  .reading .rhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-  .reading .rdate{font-weight:700;font-size:14px}
-  .reading .rdel{font-family:var(--mono);font-size:12px;color:var(--muted)}
-  .reading .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px}
-  .reg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:13px}
-  .reg .ri{font-size:14px;width:30px;flex-shrink:0;letter-spacing:-1px}
-  .reg .rv{font-weight:600}
-  .reg.p .ri{color:var(--prel-d)}.reg.i .ri{color:var(--inj-d)}
-  .btn-x{background:none;border:0;color:var(--danger);font-size:18px;cursor:pointer;padding:0 2px;line-height:1}
-
-  button.primary{width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:12px;cursor:pointer;font-family:var(--sans);margin-top:4px}
-  button.primary:active{transform:translateY(1px)}
-  button.ghost{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-weight:600;font-size:14px;padding:11px;border-radius:12px;cursor:pointer;font-family:var(--sans)}
-  .kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
-  .kpi .box{background:var(--ink);color:#eef2ef;border-radius:12px;padding:12px 13px}
-  .kpi .box .l{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#8fa79a}
-  .kpi .box .n{font-family:var(--mono);font-size:21px;font-weight:600;margin-top:3px}
-  .kpi .box .n small{font-size:12px;color:#9fb3a7}
-  .kpi .box.p{border-left:3px solid var(--prel)}.kpi .box.i{border-left:3px solid var(--inj)}
-  .note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}
-  .note b{color:var(--ink-soft)}
-  details{margin-top:8px}
-  details summary{font-size:12px;font-weight:700;color:var(--accent);cursor:pointer}
-
-  .chart svg{width:100%;height:auto;display:block}
-  .legend{display:flex;gap:16px;justify-content:center;font-size:11px;color:var(--muted);margin-top:8px}
-  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
-  .totline{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-top:1px dashed var(--line);font-family:var(--mono)}
-  .totline span:first-child{font-family:var(--sans);color:var(--muted)}
-
   .pay{display:flex;align-items:center;gap:9px;padding:8px 0;border-top:1px dashed var(--line)}
   .pay:first-child{border-top:0}
   .pay .m{flex:1;font-size:14px;font-weight:600;text-transform:capitalize}
@@ -212,11 +153,6 @@
       <p class="hint" id="plagePeriod">—</p>
       <div id="plageRows"></div>
       <div class="advice" id="plageRead"></div>
-      <details>
-        <summary>Mois par mois</summary>
-        <table class="ptab" id="plageTab"></table>
-        <p class="note">Positif = tu prélèves plus que tu n'injectes sur cette plage. Négatif = tu injectes en trop.</p>
-      </details>
     </div>
 
     <h2 class="section">Le calcul</h2>
@@ -408,6 +344,6 @@
 
 <div class="save-flash" id="flash">Enregistré</div>
 
-<script src="app.js?v=2.3.0"></script>
+<script src="app.js?v=2.4.0"></script>
 </body>
 </html>

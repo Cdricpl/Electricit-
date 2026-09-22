@@ -4,7 +4,7 @@
 /* Tenir APP_VERSION et le ?v= du <script> d'index.html identiques : la page est
    servie réseau d'abord, donc changer cette URL est ce qui garantit qu'un
    téléphone déjà équipé récupère bien le nouveau script. */
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.4.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -184,7 +184,7 @@ function renderDecompte(){
     $("kPrel").innerHTML="—<small> kWh</small>";
     $("kInj").innerHTML="—<small> kWh</small>";
     $("advice").innerHTML="";
-    $("plagePeriod").textContent="—"; $("plageRows").innerHTML=""; $("plageRead").innerHTML=""; $("plageTab").innerHTML="";
+    $("plagePeriod").textContent="—"; $("plageRows").innerHTML=""; $("plageRead").innerHTML="";
     $("calcBasis").textContent="En attente de relevés.";
     ["cHtva","cTva","cTotal","cPaid","cSolde"].forEach(id=>$(id).textContent="—");
     $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
@@ -246,71 +246,52 @@ function renderDecompte(){
    La facture ne regarde que la somme des deux, mais l'écart par plage dit
    QUAND le surplus se produit — donc quand il y a de l'énergie à absorber. */
 function renderPlages(raw){
-  $("plagePeriod").textContent=`Du ${fmtDate(raw.from)} au ${fmtDate(raw.to)} · ${Math.round(raw.days)} jours`;
+  $("plagePeriod").textContent=`Depuis le ${fmtDate(UI.yearStart)} · dernier relevé ${fmtDate(raw.to)}`;
 
   const scale=Math.max(raw.prelHP,raw.prelHC,raw.injHP,raw.injHC,1);
   const bar=(label,val,color)=>`<div class="pb"><span class="pbl">${label}</span>
       <span class="pbt"><i style="width:${(val/scale*100).toFixed(1)}%;background:${color}"></i></span>
       <span class="pbv">${kwh(val)} kWh</span></div>`;
 
-  const block=(cls,icon,name,when,prel,inj)=>{
+  const block=(icon,name,when,prel,inj)=>{
     const n=prel-inj, sur=n<0;
+    const phrase = sur
+      ? `Tu as <b>injecté ${kwh(-n)} kWh de trop</b> — cette énergie est partie au réseau ${when}.`
+      : `Tu as <b>prélevé ${kwh(n)} kWh de trop</b> — cette énergie t'a été fournie par le réseau ${when}.`;
     return `<div class="plage">
       <div class="ph"><span class="pi">${icon}</span><span class="pn">${name}</span>
         <span class="pv ${sur?"sur":"def"}">${sur?"− ":"+ "}${kwh(Math.abs(n))} kWh</span></div>
-      <div class="pc">${when} · ${sur?"injecté en trop":"prélevé en trop"}</div>
+      <p class="psent">${phrase}</p>
       ${bar("prélevé",prel,"#3f9a4e")}${bar("injecté",inj,"#e9930f")}</div>`;
   };
 
   $("plageRows").innerHTML=
-      block("p","☀","Heures pleines","semaine, journée",raw.prelHP,raw.injHP)
-    + block("i","☾","Heures creuses","nuits et week-ends",raw.prelHC,raw.injHC);
+      block("☀","Heures pleines","en semaine, dans la journée",raw.prelHP,raw.injHP)
+    + block("☾","Heures creuses","la nuit et le week-end",raw.prelHC,raw.injHC);
 
-  // --- lecture ---
-  const nHP=raw.prelHP-raw.injHP, nHC=raw.prelHC-raw.injHC;
-  const it=injTariffs();
-  let t="";
-  if(nHP<0 && nHC<0){
-    const worst = nHC<nHP ? "heures creuses" : "heures pleines";
-    t=`Tu injectes en trop sur les deux plages, surtout en <b>${worst}</b>
-       (${kwh(Math.abs(Math.min(nHP,nHC)))} kWh). `;
-  }else if(nHC<0){
-    t=`Ton surplus est en <b>heures creuses</b> : ${kwh(-nHC)} kWh injectés en trop, pendant qu'en
-       heures pleines tu prélèves ${kwh(nHP)} kWh de plus que tu n'injectes. `;
-  }else if(nHP<0){
-    t=`Ton surplus est en <b>heures pleines</b> : ${kwh(-nHP)} kWh injectés en trop, pendant qu'en
-       heures creuses tu prélèves ${kwh(nHC)} kWh de plus que tu n'injectes. `;
-  }else{
-    t=`Aucune plage n'est en surplus : tu prélèves plus que tu n'injectes des deux côtés. `;
-  }
-  if(raw.injHC>raw.injHP)
-    t+=`Tu injectes plus en heures creuses (${kwh(raw.injHC)} kWh) qu'en heures pleines
-        (${kwh(raw.injHP)} kWh) alors que tes panneaux ne produisent qu'en journée : chez RESA le
-        week-end entier compte en heures creuses, et c'est de là que vient l'essentiel. `;
-  t+=`<br><br>La facture, elle, n'additionne que la somme des deux plages — cette ventilation ne change
-      pas ton net. Elle te dit <b>quand</b> tu as de l'énergie disponible à absorber
-      ${nHC<nHP?"(plutôt le week-end en journée)":"(plutôt en semaine)"}.`;
-  if(raw.injHP+raw.injHC > raw.prelHP+raw.prelHC)
-    t+=` Si l'année se termine en injection nette, le surplus est racheté à
-        <b>${eur(it.hp)} c€</b> en HP contre <b>${eur(it.hc)} c€</b> en HC.`;
-  $("plageRead").innerHTML=t;
-
-  // --- mois par mois ---
-  const md=monthlyDeltas(UI.yearStart,yearEnd());
-  if(md.length===0){$("plageTab").innerHTML="";return;}
-  const cell=v=>`<td class="${v<0?"sur":"def"}">${signed(v)}</td>`;
-  $("plageTab").innerHTML=`<tr><th>Mois</th><th>☀ HP</th><th>☾ HC</th><th>Total</th></tr>`+
-    md.map(d=>{
-      const a=d.prelHP-d.injHP, b=d.prelHC-d.injHC;
-      return `<tr><td>${MON3[+d.key.split("-")[1]-1]} ${d.key.slice(2,4)}</td>${cell(a)}${cell(b)}${cell(a+b)}</tr>`;
-    }).join("");
+  // --- ce qu'il y a à gagner en déplaçant la consommation ---
+  const R=rates(), injTot=raw.injHP+raw.injHC;
+  $("plageRead").innerHTML=
+    `<b>${kwh(injTot)} kWh</b> sont partis au réseau depuis le ${fmtDate(UI.yearStart)} :
+     ${kwh(raw.injHP)} kWh en heures pleines, ${kwh(raw.injHC)} kWh en heures creuses.
+     Chaque kWh que tu consommes au moment où il serait parti te fait gagner
+     <b>${eur(R.selfRate)} c€</b> de frais de réseau — jusqu'à <b>${eur(injTot*R.selfRate/100)} €</b>
+     si tu absorbais tout.
+     ${raw.injHC>raw.injHP
+        ? `Le gisement est surtout en <b>heures creuses</b> : chez RESA le week-end entier y compte, et c'est là que tes panneaux produisent sans que tu consommes.`
+        : `Le gisement est surtout en <b>heures pleines</b>, donc en semaine dans la journée.`}
+     <br><br>Déplacer une consommation vers ces moments n'allège pas ton net — la compensation
+     additionne les deux plages — mais allège bien ta facture de réseau.`;
 }
 
 // Coûts unitaires TVAC, déduits des tarifs saisis.
 function rates(){
   const netRate=(S.enerUnit*(1-S.reduc/100)+S.vertUnit+S.accise+S.cotis)*1.06+S.racc;
   const it=injTariffs();
-  return {netRate, injRate:Math.max(0,(it.hp+it.hc)/2)*1.06};
+  // Un kWh consommé au moment où il partait au réseau évite les frais assis sur
+  // le prélèvement brut, mais fait perdre le ristorno assis sur l'injection.
+  const selfRate=(S.transUnit+S.distUnit+S.servUnit+S.distTaxUnit-S.ristUnit)*1.06;
+  return {netRate, selfRate, injRate:Math.max(0,(it.hp+it.hc)/2)*1.06};
 }
 
 function renderBreakdown(r,v){

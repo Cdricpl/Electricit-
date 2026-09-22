@@ -18,17 +18,19 @@ sans connexion**, et garde les données en local (rien n'est envoyé sur Interne
 
 ## Surplus par plage
 
-Ventile prélèvement et injection entre heures pleines et heures creuses, avec
-l'écart de chaque plage et un détail mois par mois. Négatif = injecté en trop.
+Cumul depuis la date de départ, énoncé en clair pour chaque plage : « tu as
+injecté X kWh de trop » ou « tu as prélevé X kWh de trop », avec le prélèvement
+et l'injection en barres comparables.
 
-La facture n'additionne que la somme des deux plages, donc cette ventilation ne
-change pas le net — elle dit **quand** le surplus se produit, c'est-à-dire quand
-il y a de l'énergie à absorber.
+Suit ce qu'il y a à gagner : le total parti au réseau, sa répartition entre les
+deux plages, et le gain par kWh qu'on arrive à consommer au moment où il serait
+parti (≈ 11 c€/kWh, les frais de réseau évités moins le ristorno perdu).
 
 Sur l'année 2025-2026 : **+247 kWh en HP** (prélevé en trop, semaine en journée)
 et **−31 kWh en HC** (injecté en trop). L'injection est plus forte en heures
 creuses (1 684 kWh) qu'en heures pleines (1 431 kWh) alors que les panneaux ne
-produisent qu'en journée : chez RESA le week-end entier compte en heures creuses.
+produisent qu'en journée : chez RESA le week-end entier compte en heures creuses,
+et c'est de là que vient l'essentiel du gisement.
 
 ## Ce que l'app dit sur heures pleines / heures creuses
 
