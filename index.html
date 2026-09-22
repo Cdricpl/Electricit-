@@ -93,6 +93,26 @@
   .lev .ls{font-size:12px;color:var(--muted);margin-top:3px}
   .lev .lnet{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin-top:2px}
   .lev.best{background:#f2f6f2;border-radius:10px;padding:11px 12px;margin-top:6px;border-top:0}
+  .plage{padding:13px 0;border-top:1px dashed var(--line)}
+  .plage:first-child{border-top:0}
+  .plage .ph{display:flex;align-items:baseline;gap:8px}
+  .plage .pi{font-size:15px;width:20px;flex-shrink:0;text-align:center}
+  .plage .pn{flex:1;font-weight:700;font-size:14px}
+  .plage .pv{font-family:var(--mono);font-weight:700;font-size:18px;white-space:nowrap}
+  .plage .pv.sur{color:var(--inj-d)}
+  .plage .pv.def{color:var(--prel-d)}
+  .plage .pc{font-size:11px;color:var(--muted);margin-top:1px;padding-left:28px}
+  .pb{display:flex;align-items:center;gap:8px;margin-top:6px;padding-left:28px;font-family:var(--mono);font-size:11px}
+  .pb .pbl{width:48px;color:var(--muted);flex-shrink:0}
+  .pb .pbt{flex:1;height:10px;background:#ece9e0;border-radius:5px;overflow:hidden}
+  .pb .pbt i{display:block;height:100%;border-radius:5px}
+  .pb .pbv{width:66px;text-align:right;font-weight:600;flex-shrink:0}
+  .ptab{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .ptab th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:right;padding:5px 0;border-bottom:1px solid var(--line);font-weight:700}
+  .ptab th:first-child{text-align:left}
+  .ptab td{padding:6px 0;border-bottom:1px dashed var(--line);text-align:right;font-family:var(--mono)}
+  .ptab td:first-child{text-align:left;font-family:var(--sans);text-transform:capitalize}
+  .ptab td.sur{color:var(--inj-d)} .ptab td.def{color:var(--prel-d)}
   .advice.warn b{color:var(--inj-d)}
 
   .bd-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-bottom:4px;border-bottom:2px solid var(--line);margin-top:14px}
@@ -194,6 +214,18 @@
         <div class="box i"><div class="l">Injecté</div><div class="n" id="kInj">—<small> kWh</small></div></div>
       </div>
       <div class="advice" id="advice"></div>
+    </div>
+
+    <h2 class="section">Surplus par plage</h2>
+    <div class="card">
+      <p class="hint" id="plagePeriod">—</p>
+      <div id="plageRows"></div>
+      <div class="advice" id="plageRead"></div>
+      <details>
+        <summary>Mois par mois</summary>
+        <table class="ptab" id="plageTab"></table>
+        <p class="note">Positif = tu prélèves plus que tu n'injectes sur cette plage. Négatif = tu injectes en trop.</p>
+      </details>
     </div>
 
     <h2 class="section">Équilibrer</h2>

@@ -1,7 +1,7 @@
 "use strict";
 /* Changer APP_VERSION à chaque modification : nouvelle URL de service worker
    => nouveau cache => les anciens sont purgés automatiquement. */
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -182,6 +182,7 @@ function renderDecompte(){
     $("kInj").innerHTML="—<small> kWh</small>";
     $("advice").innerHTML="";
     $("eqGap").textContent="—"; $("eqDayNight").innerHTML=""; $("eqRows").innerHTML=""; $("eqFoot").textContent="";
+    $("plagePeriod").textContent="—"; $("plageRows").innerHTML=""; $("plageRead").innerHTML=""; $("plageTab").innerHTML="";
     $("calcBasis").textContent="En attente de relevés.";
     ["cHtva","cTva","cTotal","cPaid","cSolde"].forEach(id=>$(id).textContent="—");
     $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
@@ -206,6 +207,7 @@ function renderDecompte(){
   $("advice").innerHTML = net>0
     ? `Chaque kWh de net te coûte <b>${eur(rates().netRate)} c€</b> d'énergie et de taxes. L'onglet ci-dessous dit quoi faire pour le réduire.`
     : `L'énergie ne t'est pas facturée tant que le net reste à zéro ou en dessous. Mais descendre bien en dessous ne rapporte presque rien — voir ci-dessous.`;
+  renderPlages(raw);
   renderEquilibrer(annualNet, raw, unreliable);
 
   // --- Le calcul ---
@@ -237,6 +239,71 @@ function renderDecompte(){
   hs.textContent=(solde>=0?"reste à payer · ":"à rembourser · ")+eur0(Math.abs(solde))+" €";
 
   renderBreakdown(r,v);
+}
+
+/* ---------- Surplus par plage ----------
+   Ventile prélèvement et injection entre heures pleines et heures creuses.
+   La facture ne regarde que la somme des deux, mais l'écart par plage dit
+   QUAND le surplus se produit — donc quand il y a de l'énergie à absorber. */
+function renderPlages(raw){
+  $("plagePeriod").textContent=`Du ${fmtDate(raw.from)} au ${fmtDate(raw.to)} · ${Math.round(raw.days)} jours`;
+
+  const scale=Math.max(raw.prelHP,raw.prelHC,raw.injHP,raw.injHC,1);
+  const bar=(label,val,color)=>`<div class="pb"><span class="pbl">${label}</span>
+      <span class="pbt"><i style="width:${(val/scale*100).toFixed(1)}%;background:${color}"></i></span>
+      <span class="pbv">${kwh(val)} kWh</span></div>`;
+
+  const block=(cls,icon,name,when,prel,inj)=>{
+    const n=prel-inj, sur=n<0;
+    return `<div class="plage">
+      <div class="ph"><span class="pi">${icon}</span><span class="pn">${name}</span>
+        <span class="pv ${sur?"sur":"def"}">${sur?"− ":"+ "}${kwh(Math.abs(n))} kWh</span></div>
+      <div class="pc">${when} · ${sur?"injecté en trop":"prélevé en trop"}</div>
+      ${bar("prélevé",prel,"#3f9a4e")}${bar("injecté",inj,"#e9930f")}</div>`;
+  };
+
+  $("plageRows").innerHTML=
+      block("p","☀","Heures pleines","semaine, journée",raw.prelHP,raw.injHP)
+    + block("i","☾","Heures creuses","nuits et week-ends",raw.prelHC,raw.injHC);
+
+  // --- lecture ---
+  const nHP=raw.prelHP-raw.injHP, nHC=raw.prelHC-raw.injHC;
+  const it=injTariffs();
+  let t="";
+  if(nHP<0 && nHC<0){
+    const worst = nHC<nHP ? "heures creuses" : "heures pleines";
+    t=`Tu injectes en trop sur les deux plages, surtout en <b>${worst}</b>
+       (${kwh(Math.abs(Math.min(nHP,nHC)))} kWh). `;
+  }else if(nHC<0){
+    t=`Ton surplus est en <b>heures creuses</b> : ${kwh(-nHC)} kWh injectés en trop, pendant qu'en
+       heures pleines tu prélèves ${kwh(nHP)} kWh de plus que tu n'injectes. `;
+  }else if(nHP<0){
+    t=`Ton surplus est en <b>heures pleines</b> : ${kwh(-nHP)} kWh injectés en trop, pendant qu'en
+       heures creuses tu prélèves ${kwh(nHC)} kWh de plus que tu n'injectes. `;
+  }else{
+    t=`Aucune plage n'est en surplus : tu prélèves plus que tu n'injectes des deux côtés. `;
+  }
+  if(raw.injHC>raw.injHP)
+    t+=`Tu injectes plus en heures creuses (${kwh(raw.injHC)} kWh) qu'en heures pleines
+        (${kwh(raw.injHP)} kWh) alors que tes panneaux ne produisent qu'en journée : chez RESA le
+        week-end entier compte en heures creuses, et c'est de là que vient l'essentiel. `;
+  t+=`<br><br>La facture, elle, n'additionne que la somme des deux plages — cette ventilation ne change
+      pas ton net. Elle te dit <b>quand</b> tu as de l'énergie disponible à absorber
+      ${nHC<nHP?"(plutôt le week-end en journée)":"(plutôt en semaine)"}.`;
+  if(raw.injHP+raw.injHC > raw.prelHP+raw.prelHC)
+    t+=` Si l'année se termine en injection nette, le surplus est racheté à
+        <b>${eur(it.hp)} c€</b> en HP contre <b>${eur(it.hc)} c€</b> en HC.`;
+  $("plageRead").innerHTML=t;
+
+  // --- mois par mois ---
+  const md=monthlyDeltas(UI.yearStart,yearEnd());
+  if(md.length===0){$("plageTab").innerHTML="";return;}
+  const cell=v=>`<td class="${v<0?"sur":"def"}">${signed(v)}</td>`;
+  $("plageTab").innerHTML=`<tr><th>Mois</th><th>☀ HP</th><th>☾ HC</th><th>Total</th></tr>`+
+    md.map(d=>{
+      const a=d.prelHP-d.injHP, b=d.prelHC-d.injHC;
+      return `<tr><td>${MON3[+d.key.split("-")[1]-1]} ${d.key.slice(2,4)}</td>${cell(a)}${cell(b)}${cell(a+b)}</tr>`;
+    }).join("");
 }
 
 /* ---------- Leviers pour équilibrer ----------

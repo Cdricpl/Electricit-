@@ -16,6 +16,20 @@ sans connexion**, et garde les données en local (rien n'est envoyé sur Interne
 | **Acomptes** | Les douze mois de l'année contractuelle, chacun modifiable, avec le total et le solde. |
 | **Tarifs** | Le décompte détaillé poste par poste, puis tous les tarifs unitaires. |
 
+## Surplus par plage
+
+Ventile prélèvement et injection entre heures pleines et heures creuses, avec
+l'écart de chaque plage et un détail mois par mois. Négatif = injecté en trop.
+
+La facture n'additionne que la somme des deux plages, donc cette ventilation ne
+change pas le net — elle dit **quand** le surplus se produit, c'est-à-dire quand
+il y a de l'énergie à absorber.
+
+Sur l'année 2025-2026 : **+247 kWh en HP** (prélevé en trop, semaine en journée)
+et **−31 kWh en HC** (injecté en trop). L'injection est plus forte en heures
+creuses (1 684 kWh) qu'en heures pleines (1 431 kWh) alors que les panneaux ne
+produisent qu'en journée : chez RESA le week-end entier compte en heures creuses.
+
 ## L'onglet Équilibrer
 
 Un simulateur compare les trois leviers à volume égal, avec les tarifs saisis :
