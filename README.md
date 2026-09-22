@@ -11,7 +11,7 @@ sans connexion**, et garde les données en local (rien n'est envoyé sur Interne
 
 | Onglet | Ce qu'il fait |
 |---|---|
-| **Décompte** | Saisie des index, prélèvement net de l'année en cours, total du décompte et solde. Une date règle le début de l'année contractuelle (par défaut le 01/07/2026) ; tout ce qui précède sert de point de départ. |
+| **Décompte** | Saisie des index, prélèvement net de l'année en cours, surplus par plage, total du décompte et solde. Une date règle le début de l'année contractuelle (par défaut le 01/07/2026) ; tout ce qui précède sert de point de départ. |
 | **Suivi** | Deux graphiques mensuels seulement : année en cours et année précédente. |
 | **Acomptes** | Les douze mois de l'année contractuelle, chacun modifiable, avec le total et le solde. |
 | **Tarifs** | Le décompte détaillé poste par poste, puis tous les tarifs unitaires. |
@@ -30,22 +30,6 @@ et **−31 kWh en HC** (injecté en trop). L'injection est plus forte en heures
 creuses (1 684 kWh) qu'en heures pleines (1 431 kWh) alors que les panneaux ne
 produisent qu'en journée : chez RESA le week-end entier compte en heures creuses.
 
-## L'onglet Équilibrer
-
-Un simulateur compare les trois leviers à volume égal, avec les tarifs saisis :
-
-| Levier | Effet sur le net | Ce qu'il rapporte |
-|---|---|---|
-| Déplacer de la nuit vers la journée | **aucun** | frais de réseau évités (≈ 11 c€/kWh) |
-| Consommer moins au total | −1 kWh par kWh | énergie + taxes + frais de réseau (≈ 35 c€/kWh) |
-| Produire plus | −1 kWh par kWh | énergie + taxes + ristorno (≈ 25 c€/kWh) |
-
-Les montants s'adaptent à la position du net : une fois passé sous zéro, couper
-la consommation ne rapporte plus l'énergie (déjà à zéro), seulement le réseau et
-le rachat du surplus — d'où une chute de 35 à 16 c€/kWh. Viser **zéro** et non le
-négatif : au-delà, un kWh injecté n'est racheté que ~2 c€ au lieu des ~22 c€
-qu'il vaut en compensation.
-
 ## Ce que l'app dit sur heures pleines / heures creuses
 
 La compensation additionne les deux plages : **déplacer une consommation des
@@ -53,15 +37,10 @@ heures creuses vers les heures pleines ne change pas le net.** Une machine
 lancée le jour est alimentée par les panneaux — le prélèvement baisse, mais
 l'injection baisse d'autant, et leur différence reste identique.
 
-Ce qui change réellement le coût, c'est l'**autoconsommation** : chaque kWh
-consommé pendant la production plutôt qu'injecté puis re-prélevé évite les frais
-de réseau assis sur le prélèvement brut (transport, distribution, services,
-taxes), moins le ristorno perdu sur l'injection. L'onglet Décompte calcule ce
-gain depuis les tarifs saisis — de l'ordre de 11 c€/kWh avec les valeurs par
-défaut, contre 22 c€/kWh pour un kWh de net.
-
-Pour faire baisser le net lui-même, il n'y a que deux leviers : consommer moins
-au total, ou produire plus.
+Ce qui change réellement le coût, c'est l'**autoconsommation** : un kWh consommé
+pendant la production plutôt qu'injecté puis re-prélevé évite les frais de réseau
+assis sur le prélèvement brut. Pour faire baisser le net lui-même, il n'y a que
+deux leviers : consommer moins au total, ou produire plus.
 
 ## Périodes
 
@@ -90,8 +69,8 @@ Adresse : `https://cdricpl.github.io/Electricit-/`
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | structure et styles |
-| `app.js` | calculs, rendu, stockage local |
+| `index.html` | structure et styles ; charge `app.js?v=<version>` |
+| `app.js` | calculs, rendu, stockage local ; porte `APP_VERSION` |
 | `sw.js` | service worker : mise en cache pour le hors-ligne |
 | `manifest.webmanifest` | nom, icônes, mode plein écran |
 | `icons/` | icônes 192 / 512 / maskable / apple-touch |
@@ -99,9 +78,15 @@ Adresse : `https://cdricpl.github.io/Electricit-/`
 ## Mettre à jour l'app
 
 1. Modifier `index.html` ou `app.js`
-2. **Incrémenter `APP_VERSION`** en haut de `app.js` — sans ça, les téléphones
-   déjà équipés gardent leur ancien cache
+2. **Incrémenter `APP_VERSION`** en haut de `app.js` **et le `?v=` du `<script>`
+   d'`index.html`** — les deux doivent rester identiques
 3. Pousser : GitHub Pages redéploie tout seul
+
+La page et son script sont servis **réseau d'abord** (seuls les icônes et le
+manifeste restent en cache d'abord) : un téléphone en ligne récupère le nouveau
+code au rechargement suivant. Le `?v=` de l'URL du script est la ceinture et
+les bretelles — il garantit une URL inédite, donc une requête que même un
+ancien cache ne peut pas intercepter.
 
 Le bouton **Vérifier les mises à jour** (onglet *Tarifs*) force le rafraîchissement.
 
