@@ -13,6 +13,21 @@ d'un prosumer wallon. Une fois sur l'écran d'accueil, elle s'ouvre en plein éc
 | **Acomptes** | Les douze mois, chacun modifiable, avec le total et le solde. |
 | **Tarifs** | Le décompte détaillé, puis tous les tarifs unitaires. |
 
+## Fondations visuelles
+
+Encre `#121A17`, papier `#F4F2EC`, accent `#0F5132` ; vert `#3F9A4E` pour le
+prélèvement, orange `#E9930F` pour l'injection — assombri à `#B5730A` quand il
+sert de texte sur blanc. Les deux se distinguent aussi par la clarté, pas
+seulement par la teinte.
+
+Pas de police téléchargée : l'app doit s'ouvrir hors connexion, donc la
+hiérarchie tient au poids, à la taille et à la couleur. Chiffres en mono à
+chasse tabulaire pour qu'ils ne dansent pas d'un rendu à l'autre. Icônes tracées
+en SVG inline plutôt que des glyphes texte. Cartes en rayon 16, champs et
+boutons 12, cibles tactiles à 44 px au minimum.
+
+Le canevas de refonte : https://claude.ai/artifact/SELMHA2HL6t6oyz4LKjrYK
+
 ## Plages horaires
 
 Réformées par la CWaPE au **1er janvier 2026**, identiques 7 jours sur 7 :

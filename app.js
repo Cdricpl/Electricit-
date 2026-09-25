@@ -4,7 +4,7 @@
 /* Tenir APP_VERSION et le ?v= du <script> d'index.html identiques : la page est
    servie réseau d'abord, donc changer cette URL est ce qui garantit qu'un
    téléphone déjà équipé récupère bien le nouveau script. */
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.2.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -215,9 +215,16 @@ const payTotal = () => paySchedule().reduce((s,x)=>s+x.amount,0);
    sur 7 et calées sur la production solaire — le creux de midi est en heures
    creuses. Avant : heures pleines 7h-22h en semaine, creuses nuits et week-ends. */
 const PLAGE_REFORME="2026-01-01";
+const SVG=(d,c="#B5730A",w=17)=>`<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICO_SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+const ICO_MOON='<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5Z"/>';
+const ICO_ARROW='<path d="M5 12h13"/><path d="m13 6 6 6-6 6"/>';
+const ICO_EQ='<path d="M5 9h14M5 15h14"/>';
+const ICO_X='<path d="M18 6 6 18M6 6l12 12"/>';
+
 const PLAGES={
-  hp:{icon:"☀", nom:"Heures pleines", horaire:"7h–11h · 17h–22h", creneau:"entre 7h et 11h, ou 17h et 22h"},
-  hc:{icon:"☾", nom:"Heures creuses", horaire:"11h–17h · 22h–7h", creneau:"entre 11h et 17h"}
+  hp:{icon:ICO_SUN,  nom:"Heures pleines", horaire:"7–11h · 17–22h", creneau:"entre 7h et 11h, ou 17h et 22h"},
+  hc:{icon:ICO_MOON, nom:"Heures creuses", horaire:"11–17h · 22–7h", creneau:"entre 11h et 17h"}
 };
 
 function renderPlages(raw){
@@ -232,10 +239,10 @@ function renderPlages(raw){
   const block=(p,prel,inj)=>{
     const n=prel-inj, sur=n<0;
     return `<div class="plage">
-      <div class="ph"><span class="pi">${p.icon}</span>
+      <div class="ph">${SVG(p.icon, sur?"#B5730A":"#0F5132")}
         <span class="pn">${p.nom}<small>${p.horaire}</small></span>
-        <span class="pv ${sur?"sur":"def"}">${sur?"− ":"+ "}${kwh(Math.abs(n))} kWh</span></div>
-      ${bar("prélevé",prel,"#3f9a4e")}${bar("injecté",inj,"#e9930f")}</div>`;
+        <span class="pv ${sur?"sur":"def"}">${sur?"−":"+"}${kwh(Math.abs(n))}</span><span class="pu">kWh</span></div>
+      ${bar("prélevé",prel,"#3F9A4E")}${bar("injecté",inj,"#E9930F")}</div>`;
   };
   $("pRows").innerHTML = block(PLAGES.hp,raw.prelHP,raw.injHP) + block(PLAGES.hc,raw.prelHC,raw.injHC);
 
@@ -243,10 +250,10 @@ function renderPlages(raw){
   // c'est là que la production part au réseau, donc là qu'il y a à absorber.
   const nHP=raw.prelHP-raw.injHP, nHC=raw.prelHC-raw.injHC;
   const v=$("pVerdict");
-  if(nHP>=0 && nHC>=0) v.innerHTML=`<span class="va">=</span><span>Aucun surplus à absorber.</span>`;
+  if(nHP>=0 && nHC>=0) v.innerHTML=SVG(ICO_EQ,"#0F5132",20)+`<span>Aucun surplus à absorber</span>`;
   else{
     const p = nHC<nHP ? PLAGES.hc : PLAGES.hp;
-    v.innerHTML=`<span class="va">→</span><span>Consomme ${p.creneau}.</span>`;
+    v.innerHTML=SVG(ICO_ARROW,"#0F5132",20)+`<span>Consomme ${p.creneau}</span>`;
   }
 }
 
@@ -257,17 +264,22 @@ function renderDecompte(){
 
   if(!v){
     $("hBig").textContent="—"; $("hBig").className="big";
-    $("hVerd").textContent=""; $("hSub").textContent=""; $("hWarn").hidden=true;
+    $("hVerd").textContent=""; $("hVerd").className="verd";
+    $("hDec").textContent="—"; $("hAco").textContent="—";
+    $("hPeriod").textContent="—"; $("hWarn").hidden=true;
     $("pWhen").textContent="—"; $("pRows").innerHTML=""; $("pVerdict").innerHTML="";
     $("breakdown").innerHTML=`<p class="note">En attente de relevés.</p>`;
     return;
   }
 
-  const r=calc(v), solde=r.total-paid;
+  const r=calc(v), solde=r.total-paid, cls=solde>=0?"due":"credit";
   $("hBig").textContent=eur0(Math.abs(solde))+" €";
-  $("hBig").className="big "+(solde>=0?"due":"credit");
+  $("hBig").className="big "+cls;
   $("hVerd").textContent=solde>=0?"à payer":"à te rembourser";
-  $("hSub").textContent=`décompte ${eur0(r.total)} € · acomptes ${eur0(paid)} €`;
+  $("hVerd").className="verd "+cls;
+  $("hDec").textContent=eur0(r.total)+" €";
+  $("hAco").textContent=eur0(paid)+" €";
+  $("hPeriod").textContent=fmtDate(UI.yearStart).slice(0,5)+" → "+fmtDate(yearEnd()).slice(0,5);
   // Le calcul part du dernier relevé antérieur au début d'année : s'il en est
   // loin, la période couvre des mois qui appartiennent à l'exercice précédent.
   const ecart=Math.round((new Date(UI.yearStart)-new Date(raw.from))/86400000);
@@ -275,7 +287,7 @@ function renderDecompte(){
   if(ecart>7) avert.push(`aucun relevé au ${fmtDate(UI.yearStart)} — calcul depuis le ${fmtDate(raw.from)}`);
   if(!v.full && v.days<150) avert.push(`projection sur ${Math.round(v.days)} jours`);
   $("hWarn").hidden = avert.length===0;
-  $("hWarn").textContent = avert.join(" · ");
+  $("hWarnT").textContent = avert.join(" · ");
 
   renderPlages(raw);
   renderBreakdown(r,v);
@@ -317,7 +329,7 @@ function renderReadings(){
   if(srt.length===0){list.innerHTML=`<p class="note">Aucun relevé.</p>`;return;}
   list.innerHTML=srt.slice().reverse().map(rd=>`<div class="reading">
       <div class="rhead"><span class="rdate">${fmtDate(rd.date)}</span>
-        <button class="btn-x" data-del="${rd.date}" aria-label="Supprimer">✕</button></div>
+        <button class="btn-x" data-del="${rd.date}" aria-label="Supprimer le relevé du ${fmtDate(rd.date)}">${SVG(ICO_X,"#B3401F",16)}</button></div>
       <div class="rgrid">
         <div class="reg p"><span class="ri">☀↓</span><span class="rv">${rd.prelHP}</span></div>
         <div class="reg p"><span class="ri">☾↓</span><span class="rv">${rd.prelHC}</span></div>
@@ -427,10 +439,15 @@ function renderAcomptes(){
   $("a_total").innerHTML=eur0(total)+"<small> €</small>";
 
   const v=currentYear();
+  const box=$("a_solde").closest(".box");
   if(v){
     const solde=calc(v).total-total;
     $("a_solde").innerHTML=(solde<0?"− ":"")+eur0(Math.abs(solde))+"<small> €</small>";
-  }else $("a_solde").innerHTML="—";
+    $("a_solde").style.color = solde<0 ? "var(--credit)" : "var(--due)";
+    box.style.borderLeftColor = solde<0 ? "var(--prel)" : "var(--inj)";
+  }else{
+    $("a_solde").innerHTML="—"; $("a_solde").style.color=""; box.style.borderLeftColor="";
+  }
 
   $("a_list").innerHTML=sch.map(x=>`<div class="pay${x.edited?" edited":""}">
       <div class="m">${monthLabel(x.key)}</div>
