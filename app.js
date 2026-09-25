@@ -4,7 +4,7 @@
 /* Tenir APP_VERSION et le ?v= du <script> d'index.html identiques : la page est
    servie réseau d'abord, donc changer cette URL est ce qui garantit qu'un
    téléphone déjà équipé récupère bien le nouveau script. */
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.1.0";
 
 const LS_S = "decompte_settings_v2",
       LS_R = "decompte_readings_v2",
@@ -42,11 +42,53 @@ const DEF_UI  = {yearStart:"2026-07-01"};
 const DEF_PAY = {monthly:60, over:{}};
 
 function load(k,def){
-  try{const v=JSON.parse(localStorage.getItem(k));return v?(Array.isArray(def)?v:{...def,...v}):structuredClone(def);}
+  try{const v=JSON.parse(localStorage.getItem(k));return v??structuredClone(def);}
   catch(e){return structuredClone(def);}
 }
-let S=load(LS_S,DEFAULTS), R=load(LS_R,SEED_READINGS), UI=load(LS_U,DEF_UI), P=load(LS_P,DEF_PAY);
-if(!P.over) P.over={};
+
+/* Tout ce qui vient du stockage ou d'un fichier importé est ramené à sa forme
+   attendue avant usage : les relevés sont injectés en innerHTML, donc une
+   valeur textuelle y passerait pour du balisage. */
+const ISO_D=/^\d{4}-\d{2}-\d{2}$/, ISO_M=/^\d{4}-\d{2}$/;
+const num=(v,d=0)=>{const n=Number(v);return Number.isFinite(n)?n:d;};
+
+function normReadings(a){
+  if(!Array.isArray(a)) return [];
+  const out=[];
+  for(const r of a){
+    if(!r||typeof r!=="object") continue;
+    const date=String(r.date??"");
+    if(!ISO_D.test(date)) continue;
+    out.push({date, prelHP:num(r.prelHP), prelHC:num(r.prelHC), injHP:num(r.injHP), injHC:num(r.injHC)});
+  }
+  return out;
+}
+function normSettings(o){
+  const out={...DEFAULTS};
+  for(const k of Object.keys(DEFAULTS)){
+    if(typeof DEFAULTS[k]==="boolean") out[k]=!!(o&&o[k]);
+    else if(typeof DEFAULTS[k]==="number") out[k]=num(o&&o[k],DEFAULTS[k]);
+  }
+  out.injMode = (o&&o.injMode==="belpex") ? "belpex" : "manuel";
+  return out;
+}
+function normUI(o){
+  const y=o&&ISO_D.test(String(o.yearStart))?o.yearStart:DEF_UI.yearStart;
+  return {yearStart:y};
+}
+function normPay(o){
+  const out={monthly:num(o&&o.monthly,DEF_PAY.monthly), over:{}};
+  if(o&&o.over&&typeof o.over==="object")
+    for(const[k,v]of Object.entries(o.over))
+      if(ISO_M.test(k)&&Number.isFinite(Number(v))) out.over[k]=Number(v);
+  return out;
+}
+
+let S=normSettings(load(LS_S,DEFAULTS)),
+    R=normReadings(load(LS_R,SEED_READINGS)),
+    UI=normUI(load(LS_U,DEF_UI)),
+    P=normPay(load(LS_P,DEF_PAY));
+if(R.length===0) R=structuredClone(SEED_READINGS);
 
 function saveS(){localStorage.setItem(LS_S,JSON.stringify(S));}
 function saveR(){localStorage.setItem(LS_R,JSON.stringify(R));}
@@ -179,8 +221,8 @@ const PLAGES={
 };
 
 function renderPlages(raw){
-  $("pWhen").textContent=`depuis le ${fmtDate(UI.yearStart)}`
-    + (UI.yearStart < PLAGE_REFORME && raw.to >= PLAGE_REFORME ? " · plages modifiées le 01/01/2026" : "");
+  $("pWhen").textContent=`du ${fmtDate(raw.from)} au ${fmtDate(raw.to)}`
+    + (raw.from < PLAGE_REFORME && raw.to >= PLAGE_REFORME ? " · plages modifiées le 01/01/2026" : "");
 
   const scale=Math.max(raw.prelHP,raw.prelHC,raw.injHP,raw.injHC,1);
   const bar=(label,val,color)=>`<div class="pb"><span class="pbl">${label}</span>
@@ -226,8 +268,14 @@ function renderDecompte(){
   $("hBig").className="big "+(solde>=0?"due":"credit");
   $("hVerd").textContent=solde>=0?"à payer":"à te rembourser";
   $("hSub").textContent=`décompte ${eur0(r.total)} € · acomptes ${eur0(paid)} €`;
-  $("hWarn").hidden = v.full || v.days>=150;
-  if(!$("hWarn").hidden) $("hWarn").textContent=`projection sur ${Math.round(v.days)} jours`;
+  // Le calcul part du dernier relevé antérieur au début d'année : s'il en est
+  // loin, la période couvre des mois qui appartiennent à l'exercice précédent.
+  const ecart=Math.round((new Date(UI.yearStart)-new Date(raw.from))/86400000);
+  const avert=[];
+  if(ecart>7) avert.push(`aucun relevé au ${fmtDate(UI.yearStart)} — calcul depuis le ${fmtDate(raw.from)}`);
+  if(!v.full && v.days<150) avert.push(`projection sur ${Math.round(v.days)} jours`);
+  $("hWarn").hidden = avert.length===0;
+  $("hWarn").textContent = avert.join(" · ");
 
   renderPlages(raw);
   renderBreakdown(r,v);
@@ -277,6 +325,7 @@ function renderReadings(){
         <div class="reg i"><span class="ri">☾↑</span><span class="rv">${rd.injHC}</span></div>
       </div></div>`).join("");
   list.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    if(!confirm(`Supprimer le relevé du ${fmtDate(b.dataset.del)} ?`)) return;
     R=R.filter(x=>x.date!==b.dataset.del);saveR();renderAll();flash("Supprimé");
   });
 }
@@ -284,10 +333,23 @@ function renderReadings(){
 function bindDecompte(){
   $("addReading").onclick=()=>{
     const d=$("r_date").value;
-    if(!d){alert("Choisis une date de relevé.");return;}
+    if(!ISO_D.test(d)){alert("Choisis une date de relevé.");return;}
+    const champs=["r_prelHP","r_prelHC","r_injHP","r_injHC"].map(id=>$(id).value.trim());
+    if(champs.some(v=>v===""))
+      {alert("Recopie les quatre index du compteur.");return;}
+    const n=champs.map(Number);
+    if(n.some(v=>!Number.isFinite(v)||v<0))
+      {alert("Un index est invalide.");return;}
+    // Un index de compteur ne recule jamais : le signaler évite d'inverser
+    // deux colonnes ou de se tromper d'ordre de grandeur sans s'en rendre compte.
+    const prec=sortedReadings().filter(x=>x.date<d).pop();
+    if(prec){
+      const p=[prec.prelHP,prec.prelHC,prec.injHP,prec.injHC];
+      if(n.some((v,i)=>v<p[i]) &&
+         !confirm(`Un index est inférieur à celui du ${fmtDate(prec.date)}. Enregistrer quand même ?`)) return;
+    }
     R=R.filter(x=>x.date!==d);
-    R.push({date:d, prelHP:+$("r_prelHP").value||0, prelHC:+$("r_prelHC").value||0,
-            injHP:+$("r_injHP").value||0, injHC:+$("r_injHC").value||0});
+    R.push({date:d, prelHP:n[0], prelHC:n[1], injHP:n[2], injHC:n[3]});
     saveR();
     ["r_prelHP","r_prelHC","r_injHP","r_injHC","r_date"].forEach(id=>$(id).value="");
     renderAll(); flash("Relevé enregistré");
@@ -348,14 +410,6 @@ function chartSvg(data){
       g+=`<text x="${cx.toFixed(1)}" y="${H-8}" font-size="9" fill="#6c7771" text-anchor="middle">${MON3[+d.key.split("-")[1]-1]}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prélèvement et injection par mois">${g}</svg>`;
-}
-
-function chartTotals(data){
-  if(data.length===0) return "";
-  const t=data.reduce((a,d)=>({p:a.p+d.prelHP+d.prelHC, i:a.i+d.injHP+d.injHC}),{p:0,i:0});
-  return `<div class="totline"><span>Prélevé</span><span>${kwh(t.p)} kWh</span></div>
-          <div class="totline"><span>Injecté</span><span>${kwh(t.i)} kWh</span></div>
-          <div class="totline"><span>Net</span><span>${signed(t.p-t.i)} kWh</span></div>`;
 }
 
 function renderSuivi(){
@@ -441,7 +495,10 @@ function switchView(name){
   if(name==="suivi")    renderSuivi();
   if(name==="acomptes") renderAcomptes();
   document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="v-"+name));
-  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
+  document.querySelectorAll("nav.tabs button").forEach(b=>{
+    const on=b.dataset.view===name;
+    b.classList.toggle("active",on); b.setAttribute("aria-selected",on?"true":"false");
+  });
   window.scrollTo({top:0,behavior:"instant"});
 }
 document.querySelectorAll("nav.tabs button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
@@ -506,9 +563,9 @@ $("fileImport").onchange=e=>{
       const d=JSON.parse(fr.result);
       if(!d||!Array.isArray(d.readings)||typeof d.settings!=="object")throw new Error("format");
       if(!confirm("Remplacer les données actuelles par celles de la sauvegarde ?"))return;
-      R=d.readings; S={...DEFAULTS,...d.settings};
-      UI={...DEF_UI,...(d.ui||{})};
-      P={...DEF_PAY,...(d.acomptes||{})}; P.over=P.over||{};
+      R=normReadings(d.readings); S=normSettings(d.settings);
+      UI=normUI(d.ui); P=normPay(d.acomptes);
+      if(R.length===0){alert("Aucun relevé exploitable dans ce fichier.");return;}
       saveR();saveS();saveU();saveP();
       fillSettings(); $("yearStart").value=UI.yearStart; renderAll();
       flash("Sauvegarde restaurée");

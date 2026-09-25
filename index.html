@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Décompte — électricité prosumer</title>
 <meta name="description" content="Décompte annuel d'électricité pour prosumer : index HP/HC, acomptes, solde de fin d'année. Fonctionne hors ligne.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#16201c">
 <link rel="manifest" href="manifest.webmanifest">
@@ -146,6 +147,7 @@
 </style>
 </head>
 <body>
+<noscript><p style="padding:20px;font-family:system-ui">Cette application a besoin de JavaScript.</p></noscript>
 
 <header>
   <div class="brand"><h1>Décompte</h1><span class="sub">électricité</span></div>
@@ -161,7 +163,7 @@
 <main>
 
   <!-- ============ DÉCOMPTE ============ -->
-  <section class="view active" id="v-decompte">
+  <section class="view active" id="v-decompte" role="tabpanel" aria-label="Décompte">
 
     <h2 class="section">Quand consommer</h2>
     <div class="card">
@@ -188,7 +190,7 @@
   </section>
 
   <!-- ============ SUIVI ============ -->
-  <section class="view" id="v-suivi">
+  <section class="view" id="v-suivi" role="tabpanel" aria-label="Suivi">
     <h2 class="section" id="curTitle">Année en cours</h2>
     <div class="card"><div class="chart" id="chartCur"></div></div>
     <h2 class="section" id="prevTitle">Année précédente</h2>
@@ -200,7 +202,7 @@
   </section>
 
   <!-- ============ ACOMPTES ============ -->
-  <section class="view" id="v-acomptes">
+  <section class="view" id="v-acomptes" role="tabpanel" aria-label="Acomptes">
     <h2 class="section">Acomptes</h2>
     <div class="kpi">
       <div class="box"><div class="l">Versé</div><div class="n" id="a_total">—<small> €</small></div></div>
@@ -210,7 +212,7 @@
   </section>
 
   <!-- ============ TARIFS ============ -->
-  <section class="view" id="v-tarifs">
+  <section class="view" id="v-tarifs" role="tabpanel" aria-label="Tarifs">
 
     <h2 class="section">Décompte détaillé</h2>
     <div class="card"><div id="breakdown"></div></div>
@@ -301,15 +303,15 @@
   </section>
 </main>
 
-<nav class="tabs">
-  <button data-view="decompte" class="active"><span class="ic">⊿</span>Décompte</button>
-  <button data-view="suivi"><span class="ic">≣</span>Suivi</button>
-  <button data-view="acomptes"><span class="ic">€</span>Acomptes</button>
-  <button data-view="tarifs"><span class="ic">⚙</span>Tarifs</button>
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button role="tab" aria-selected="true"  aria-controls="v-decompte" data-view="decompte" class="active"><span class="ic" aria-hidden="true">⊿</span>Décompte</button>
+  <button role="tab" aria-selected="false" aria-controls="v-suivi"    data-view="suivi"><span class="ic" aria-hidden="true">≣</span>Suivi</button>
+  <button role="tab" aria-selected="false" aria-controls="v-acomptes" data-view="acomptes"><span class="ic" aria-hidden="true">€</span>Acomptes</button>
+  <button role="tab" aria-selected="false" aria-controls="v-tarifs"   data-view="tarifs"><span class="ic" aria-hidden="true">⚙</span>Tarifs</button>
 </nav>
 
 <div class="save-flash" id="flash">Enregistré</div>
 
-<script src="app.js?v=3.0.0"></script>
+<script src="app.js?v=3.1.0"></script>
 </body>
 </html>
